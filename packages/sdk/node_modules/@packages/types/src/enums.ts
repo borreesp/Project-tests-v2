@@ -11,6 +11,7 @@ export type MovementUnit = "REPS" | "METERS" | "SECONDS" | "CALORIES";
 
 export type WorkoutType = "AMRAP" | "EMOM" | "FORTIME" | "INTERVALS" | "BLOCKS";
 export type WorkoutVisibility = "COMMUNITY" | "GYMS_ONLY";
+export type ScoreType = "REPS" | "METERS" | "TIME" | "ROUNDS_METERS";
 
 export type ScaleCode = "RX" | "SCALED";
 

@@ -10,6 +10,7 @@ import type {
   MovementPattern,
   MovementUnit,
   ScaleCode,
+  ScoreType,
   Sex,
   UserRole,
   WorkoutType,
@@ -79,7 +80,13 @@ export interface WorkoutDefinitionSummaryDTO {
   isTest: boolean;
   type: WorkoutType;
   visibility: WorkoutVisibility;
+  scoreType?: ScoreType;
   publishedAt?: string;
+}
+
+export interface WorkoutCapacityWeightDTO {
+  capacityType: CapacityType;
+  weight: number;
 }
 
 export interface WorkoutDefinitionDetailDTO {
@@ -89,6 +96,7 @@ export interface WorkoutDefinitionDetailDTO {
   isTest: boolean;
   type: WorkoutType;
   visibility: WorkoutVisibility;
+  scoreType?: ScoreType;
   scales: Array<{ code: ScaleCode; label: string; notes: string; referenceLoads: Record<string, unknown> }>;
   blocks: Array<{
     id: string;
@@ -111,6 +119,69 @@ export interface WorkoutDefinitionDetailDTO {
       boxHeightCm?: number;
     }>;
   }>;
+  capacityWeights?: WorkoutCapacityWeightDTO[];
+}
+
+export interface WorkoutScaleInputDTO {
+  code: ScaleCode;
+  label: string;
+  notes: string;
+  referenceLoads: Record<string, unknown>;
+}
+
+export interface WorkoutBlockMovementInputDTO {
+  ord: number;
+  movementId: string;
+  reps?: number;
+  meters?: number;
+  seconds?: number;
+  calories?: number;
+  loadRule: LoadRule;
+  notes: string;
+  boxHeightCm?: number;
+}
+
+export interface WorkoutBlockInputDTO {
+  ord: number;
+  name: string;
+  blockType: BlockType;
+  repeatInt: number;
+  timeSeconds?: number;
+  capSeconds?: number;
+  movements: WorkoutBlockMovementInputDTO[];
+}
+
+export interface CoachWorkoutSummaryDTO {
+  id: string;
+  title: string;
+  isTest: boolean;
+  type: WorkoutType;
+  visibility: WorkoutVisibility;
+  scoreType?: ScoreType;
+  publishedAt?: string;
+}
+
+export interface WorkoutUpsertRequestDTO {
+  title: string;
+  description: string;
+  isTest: boolean;
+  type: WorkoutType;
+  visibility: WorkoutVisibility;
+  scoreType?: ScoreType;
+  scales: WorkoutScaleInputDTO[];
+  blocks: WorkoutBlockInputDTO[];
+  capacityWeights: WorkoutCapacityWeightDTO[];
+}
+
+export interface WorkoutMutationResponseDTO {
+  id: string;
+  title: string;
+  isTest: boolean;
+  type: WorkoutType;
+  visibility: WorkoutVisibility;
+  scoreType?: ScoreType;
+  publishedAt?: string;
+  updatedAt: string;
 }
 
 export interface CreateAttemptResponse {

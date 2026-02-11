@@ -1,6 +1,7 @@
-import type {
+﻿import type {
   AthleteDashboardDTO,
   AttemptDTO,
+  CoachWorkoutSummaryDTO,
   CreateAttemptResponse,
   LeaderboardDTO,
   LoginRequest,
@@ -10,8 +11,12 @@ import type {
   RefreshResponse,
   ScaleCode,
   SubmitResultRequest,
+  UserRole,
+  UserStatus,
   WorkoutDefinitionDetailDTO,
   WorkoutDefinitionSummaryDTO,
+  WorkoutMutationResponseDTO,
+  WorkoutUpsertRequestDTO,
 } from "@packages/types";
 
 import { getTokens, setTokens } from "./auth";
@@ -28,8 +33,8 @@ type CreateApiOptions = {
 export type MeResponse = {
   id: string;
   email: string;
-  role: string;
-  status: string;
+  role: UserRole;
+  status: UserStatus;
 };
 
 export type CreateAttemptRequest = {
@@ -43,13 +48,32 @@ export type LeaderboardQuery = {
   scaleCode: ScaleCode;
   scope: "COMMUNITY" | "GYM";
   period: "ALL_TIME" | "D30";
-  gymId?: string;
 };
 
-export type CoachOverviewDTO = Record<string, unknown>;
-export type CoachAthleteDTO = Record<string, unknown>;
-export type CreateWorkoutRequest = Record<string, unknown>;
-export type CreateWorkoutResponse = Record<string, unknown>;
+export type CoachOverviewDTO = {
+  gymId: string;
+  athletesCount: number;
+  pendingSubmissions: number;
+  validatedToday: number;
+};
+
+export type CoachAthleteDTO = {
+  athleteId: string;
+  userId: string;
+  email: string;
+  level: number;
+  levelBand: string;
+};
+
+export type CoachAthleteDetailDTO = {
+  athleteId: string;
+  userId: string;
+  email: string;
+  gymId: string;
+  level: number;
+  levelBand: string;
+  createdAt: string;
+};
 
 type ApiEndpoints = {
   login: string;
@@ -58,34 +82,42 @@ type ApiEndpoints = {
   listMovements: string;
   listWorkouts: string;
   getWorkoutDetail: (workoutId: string) => string;
-  createAttempt: string;
+  createAttempt: (workoutId: string) => string;
   submitResult: (attemptId: string) => string;
   athleteDashboard: string;
   leaderboard: string;
   coachOverview: string;
   coachAthletes: string;
+  coachAthleteDetail: (athleteId: string) => string;
+  coachWorkouts: string;
   validateAttempt: (attemptId: string) => string;
   rejectAttempt: (attemptId: string) => string;
   createWorkout: string;
+  updateWorkout: (workoutId: string) => string;
+  duplicateWorkout: (workoutId: string) => string;
   publishWorkout: (workoutId: string) => string;
 };
 
 const DEFAULT_ENDPOINTS: ApiEndpoints = {
   login: "/auth/login",
   refresh: "/auth/refresh",
-  me: "/auth/me",
-  listMovements: "/public/movements",
-  listWorkouts: "/public/workouts",
-  getWorkoutDetail: (workoutId) => `/public/workouts/${workoutId}`,
-  createAttempt: "/athlete/attempts",
-  submitResult: (attemptId) => `/athlete/attempts/${attemptId}/result`,
+  me: "/me",
+  listMovements: "/movements",
+  listWorkouts: "/workouts",
+  getWorkoutDetail: (workoutId) => `/workouts/${workoutId}`,
+  createAttempt: (workoutId) => `/athlete/workouts/${workoutId}/attempt`,
+  submitResult: (attemptId) => `/athlete/attempts/${attemptId}/submit-result`,
   athleteDashboard: "/athlete/dashboard",
-  leaderboard: "/public/leaderboards",
+  leaderboard: "/rankings",
   coachOverview: "/coach/overview",
   coachAthletes: "/coach/athletes",
+  coachAthleteDetail: (athleteId) => `/coach/athletes/${athleteId}`,
+  coachWorkouts: "/coach/workouts",
   validateAttempt: (attemptId) => `/coach/attempts/${attemptId}/validate`,
   rejectAttempt: (attemptId) => `/coach/attempts/${attemptId}/reject`,
   createWorkout: "/coach/workouts",
+  updateWorkout: (workoutId) => `/coach/workouts/${workoutId}`,
+  duplicateWorkout: (workoutId) => `/coach/workouts/${workoutId}/duplicate`,
   publishWorkout: (workoutId) => `/coach/workouts/${workoutId}/publish`,
 };
 
@@ -131,8 +163,13 @@ export function createApi(options: CreateApiOptions) {
       return http.request<MeResponse>(endpoints.me);
     },
 
-    async listMovements(): Promise<MovementDTO[]> {
-      return http.request<MovementDTO[]>(endpoints.listMovements);
+    async listMovements(query?: string): Promise<MovementDTO[]> {
+      if (!query || !query.trim()) {
+        return http.request<MovementDTO[]>(endpoints.listMovements);
+      }
+
+      const params = new URLSearchParams({ query: query.trim() });
+      return http.request<MovementDTO[]>(`${endpoints.listMovements}?${params.toString()}`);
     },
 
     async listWorkouts(): Promise<WorkoutDefinitionSummaryDTO[]> {
@@ -144,9 +181,11 @@ export function createApi(options: CreateApiOptions) {
     },
 
     async createAttempt(payload: CreateAttemptRequest): Promise<CreateAttemptResponse> {
-      return http.request<CreateAttemptResponse>(endpoints.createAttempt, {
+      return http.request<CreateAttemptResponse>(endpoints.createAttempt(payload.workoutId), {
         method: "POST",
-        body: payload,
+        body: {
+          scaleCode: payload.scaleCode,
+        },
       });
     },
 
@@ -168,11 +207,6 @@ export function createApi(options: CreateApiOptions) {
         scope: query.scope,
         period: query.period,
       });
-
-      if (query.gymId) {
-        params.set("gymId", query.gymId);
-      }
-
       return http.request<LeaderboardDTO>(`${endpoints.leaderboard}?${params.toString()}`);
     },
 
@@ -182,6 +216,14 @@ export function createApi(options: CreateApiOptions) {
 
     async coachAthletes(): Promise<CoachAthleteDTO[]> {
       return http.request<CoachAthleteDTO[]>(endpoints.coachAthletes);
+    },
+
+    async coachAthleteDetail(athleteId: string): Promise<CoachAthleteDetailDTO> {
+      return http.request<CoachAthleteDetailDTO>(endpoints.coachAthleteDetail(athleteId));
+    },
+
+    async coachWorkouts(): Promise<CoachWorkoutSummaryDTO[]> {
+      return http.request<CoachWorkoutSummaryDTO[]>(endpoints.coachWorkouts);
     },
 
     async validateAttempt(attemptId: string): Promise<AttemptDTO> {
@@ -197,10 +239,23 @@ export function createApi(options: CreateApiOptions) {
       });
     },
 
-    async createWorkout(payload: CreateWorkoutRequest): Promise<CreateWorkoutResponse> {
-      return http.request<CreateWorkoutResponse>(endpoints.createWorkout, {
+    async createWorkout(payload: WorkoutUpsertRequestDTO): Promise<WorkoutMutationResponseDTO> {
+      return http.request<WorkoutMutationResponseDTO>(endpoints.createWorkout, {
         method: "POST",
         body: payload,
+      });
+    },
+
+    async updateWorkout(workoutId: string, payload: WorkoutUpsertRequestDTO): Promise<WorkoutMutationResponseDTO> {
+      return http.request<WorkoutMutationResponseDTO>(endpoints.updateWorkout(workoutId), {
+        method: "PUT",
+        body: payload,
+      });
+    },
+
+    async duplicateWorkout(workoutId: string): Promise<WorkoutMutationResponseDTO> {
+      return http.request<WorkoutMutationResponseDTO>(endpoints.duplicateWorkout(workoutId), {
+        method: "POST",
       });
     },
 

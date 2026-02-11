@@ -28,6 +28,14 @@ export default function CoachWorkoutsPage() {
 
   const notice = searchParams.get("notice");
 
+  function getDeleteErrorMessage(err: unknown): string {
+    if (!(err instanceof Error)) return "No se pudo eliminar";
+    if (err.message.includes("HTTP 409") || err.message.includes("resultados asociados")) {
+      return "No se puede eliminar porque tiene resultados asociados.";
+    }
+    return err.message;
+  }
+
   async function loadWorkouts() {
     const response = await webApi.coachWorkouts();
     setWorkouts(response.filter((item) => item.isTest));
@@ -86,6 +94,23 @@ export default function CoachWorkoutsPage() {
       await loadWorkouts();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo publicar");
+    } finally {
+      setRunningActionId(null);
+    }
+  }
+
+  async function onDelete(workoutId: string) {
+    const confirmed = window.confirm("¿Seguro que deseas eliminar este test? Esta acción no se puede deshacer.");
+    if (!confirmed) return;
+
+    setError(null);
+    setRunningActionId(workoutId);
+    try {
+      await webApi.deleteWorkout(workoutId);
+      await loadWorkouts();
+      router.replace(`/coach/workouts?notice=${encodeURIComponent("Test eliminado correctamente")}`);
+    } catch (err) {
+      setError(getDeleteErrorMessage(err));
     } finally {
       setRunningActionId(null);
     }
@@ -168,6 +193,14 @@ export default function CoachWorkoutsPage() {
                         </Button>
                         <Button size="sm" disabled={actionRunning} onClick={() => void onPublish(item.id)}>
                           Publicar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={actionRunning}
+                          onClick={() => void onDelete(item.id)}
+                        >
+                          Eliminar
                         </Button>
                       </div>
                     </TableCell>

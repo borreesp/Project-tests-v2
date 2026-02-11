@@ -70,6 +70,7 @@ from src.application.dtos.coach import (
     CoachAthleteSummaryDTO,
     CoachOverviewDTO,
     CoachWorkoutSummaryDTO,
+    DeleteWorkoutResponseDTO,
     DuplicateWorkoutResponseDTO,
     IdealScoreGetResponseDTO,
     IdealScoreGymEntryDTO,
@@ -1056,6 +1057,40 @@ class RuntimeService:
             self._set_workout_structure(duplicate, source.scales, source.blocks, source.capacity_weights)
             self.workouts[duplicate.id] = duplicate
             return DuplicateWorkoutResponseDTO(id=duplicate.id)
+
+    def delete_workout(self, current_user: UserRecord, workout_id: str) -> DeleteWorkoutResponseDTO:
+        with self._lock:
+            self._require_roles(current_user, {UserRole.COACH, UserRole.ADMIN})
+            workout = self.workouts.get(workout_id)
+            if workout is None:
+                raise NotFoundError("Workout not found")
+            if not workout.is_test:
+                raise BadRequestError("Only test workouts can be deleted from this endpoint")
+            if current_user.role != UserRole.ADMIN and workout.author_coach_user_id != current_user.id:
+                raise ForbiddenError("Coach can only delete own workouts")
+
+            has_attempts = any(attempt.workout_definition_id == workout_id for attempt in self.attempts.values())
+            if has_attempts:
+                raise ConflictError("No se puede eliminar porque tiene resultados asociados.")
+
+            self.assignments = {
+                assignment_id: assignment
+                for assignment_id, assignment in self.assignments.items()
+                if assignment.workout_definition_id != workout_id
+            }
+            self.ideal_profiles = {
+                profile_id: profile
+                for profile_id, profile in self.ideal_profiles.items()
+                if profile.workout_definition_id != workout_id
+            }
+            self.leaderboards = {
+                key: leaderboard
+                for key, leaderboard in self.leaderboards.items()
+                if leaderboard.workout_definition_id != workout_id
+            }
+            del self.workouts[workout_id]
+
+            return DeleteWorkoutResponseDTO()
 
     def get_workout_ideal_scores(self, current_user: UserRecord, workout_id: str) -> IdealScoreGetResponseDTO:
         self._require_roles(current_user, {UserRole.COACH, UserRole.ADMIN})

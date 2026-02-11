@@ -68,6 +68,7 @@ from src.application.dtos.coach import (
     CoachAthleteDetailDTO,
     CoachAthleteSummaryDTO,
     CoachOverviewDTO,
+    DeleteWorkoutResponseDTO,
     PublishWorkoutResponseDTO,
     ValidateAttemptResponseDTO,
     WorkoutCreateRequestDTO,
@@ -980,6 +981,44 @@ class RuntimeService:
                 visibility=workout.visibility,
                 publishedAt=_iso(workout.published_at) or "",
             )
+
+    def delete_workout(self, current_user: UserRecord, workout_id: str) -> DeleteWorkoutResponseDTO:
+        with self._lock:
+            self._require_roles(current_user, {UserRole.COACH, UserRole.ADMIN})
+            workout = self.workouts.get(workout_id)
+            if workout is None:
+                raise NotFoundError("Workout not found")
+            if not workout.is_test:
+                raise ValidationServiceError("Only tests can be deleted")
+            if current_user.role != UserRole.ADMIN and workout.author_coach_user_id != current_user.id:
+                raise ForbiddenError("Coach can only delete own tests")
+
+            has_attempts = any(attempt.workout_definition_id == workout_id for attempt in self.attempts.values())
+            if has_attempts:
+                raise ConflictError("No se puede eliminar porque tiene resultados asociados.")
+
+            assignment_ids = [
+                assignment_id
+                for assignment_id, assignment in self.assignments.items()
+                if assignment.workout_definition_id == workout_id
+            ]
+            for assignment_id in assignment_ids:
+                del self.assignments[assignment_id]
+
+            ideal_profile_ids = [
+                ideal_profile_id
+                for ideal_profile_id, ideal_profile in self.ideal_profiles.items()
+                if ideal_profile.workout_definition_id == workout_id
+            ]
+            for ideal_profile_id in ideal_profile_ids:
+                del self.ideal_profiles[ideal_profile_id]
+
+            leaderboard_keys = [key for key, leaderboard in self.leaderboards.items() if leaderboard.workout_definition_id == workout_id]
+            for leaderboard_key in leaderboard_keys:
+                del self.leaderboards[leaderboard_key]
+
+            del self.workouts[workout_id]
+            return DeleteWorkoutResponseDTO(status="ok")
 
     def get_rankings(
         self,

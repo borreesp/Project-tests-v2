@@ -151,3 +151,58 @@ def test_create_workout_create_attempt_submit_validate_dashboard(client: TestCli
     dashboard = dashboard_response.json()
     assert dashboard["counts"]["tests30d"] >= 1
     assert len(dashboard["capacities"]) == 4
+
+
+def test_delete_test_workout_without_attempts(client: TestClient) -> None:
+    coach_login = _login(client, "coach@local.com", "Coach123!")
+    coach_headers = _auth_headers(coach_login["accessToken"])
+
+    movements_response = client.get("/api/v1/movements")
+    assert movements_response.status_code == 200
+    movement_id = movements_response.json()[0]["id"]
+
+    create_workout_response = client.post(
+        "/api/v1/coach/workouts",
+        json=_build_workout_payload(movement_id),
+        headers=coach_headers,
+    )
+    assert create_workout_response.status_code == 200
+    workout_id = create_workout_response.json()["id"]
+
+    delete_response = client.delete(f"/api/v1/coach/workouts/{workout_id}", headers=coach_headers)
+    assert delete_response.status_code == 200
+    assert delete_response.json() == {"status": "ok"}
+
+
+def test_delete_test_workout_with_attempts_returns_conflict(client: TestClient) -> None:
+    coach_login = _login(client, "coach@local.com", "Coach123!")
+    coach_headers = _auth_headers(coach_login["accessToken"])
+
+    movements_response = client.get("/api/v1/movements")
+    assert movements_response.status_code == 200
+    movement_id = movements_response.json()[0]["id"]
+
+    create_workout_response = client.post(
+        "/api/v1/coach/workouts",
+        json=_build_workout_payload(movement_id),
+        headers=coach_headers,
+    )
+    assert create_workout_response.status_code == 200
+    workout_id = create_workout_response.json()["id"]
+
+    publish_response = client.post(f"/api/v1/coach/workouts/{workout_id}/publish", headers=coach_headers)
+    assert publish_response.status_code == 200
+
+    athlete_login = _login(client, "athlete@local.com", "Athlete123!")
+    athlete_headers = _auth_headers(athlete_login["accessToken"])
+
+    create_attempt_response = client.post(
+        f"/api/v1/athlete/workouts/{workout_id}/attempt",
+        json={"scaleCode": "RX"},
+        headers=athlete_headers,
+    )
+    assert create_attempt_response.status_code == 200
+
+    delete_response = client.delete(f"/api/v1/coach/workouts/{workout_id}", headers=coach_headers)
+    assert delete_response.status_code == 409
+    assert delete_response.json()["detail"] == "No se puede eliminar porque tiene resultados asociados."

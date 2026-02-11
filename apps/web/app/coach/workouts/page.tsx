@@ -17,7 +17,9 @@ export default function CoachWorkoutsPage() {
   const [movements, setMovements] = useState<MovementDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const [title, setTitle] = useState("Base Test");
   const [description, setDescription] = useState("Single-block workout");
@@ -65,6 +67,7 @@ export default function CoachWorkoutsPage() {
 
     setSaving(true);
     setError(null);
+    setSuccessMessage(null);
 
     try {
       await webApi.createWorkout({
@@ -119,12 +122,39 @@ export default function CoachWorkoutsPage() {
 
   async function onPublish(workoutId: string) {
     setError(null);
+    setSuccessMessage(null);
 
     try {
       await webApi.publishWorkout(workoutId);
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo publicar workout");
+    }
+  }
+
+
+  async function onDelete(workout: WorkoutDefinitionSummaryDTO) {
+    setError(null);
+    setSuccessMessage(null);
+
+    const confirmed = window.confirm(
+      "¿Seguro que deseas eliminar este test? Esta acción no se puede deshacer."
+    );
+    if (!confirmed) return;
+
+    setDeletingId(workout.id);
+    try {
+      await webApi.deleteWorkout(workout.id);
+      await loadData();
+      setSuccessMessage("Test eliminado correctamente");
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("409")) {
+        setError("No se puede eliminar porque tiene resultados asociados.");
+      } else {
+        setError(err instanceof Error ? err.message : "No se pudo eliminar workout");
+      }
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -196,6 +226,7 @@ export default function CoachWorkoutsPage() {
               </div>
             </div>
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            {successMessage ? <p className="text-sm text-emerald-600">{successMessage}</p> : null}
             <Button type="submit" disabled={saving || !movementId}>
               {saving ? "Guardando..." : "Crear"}
             </Button>
@@ -216,9 +247,18 @@ export default function CoachWorkoutsPage() {
                   {workout.type} | {workout.visibility} | {workout.publishedAt ? "Published" : "Draft"}
                 </p>
               </div>
-              <Button variant="outline" onClick={() => void onPublish(workout.id)}>
-                Publicar
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => void onPublish(workout.id)}>
+                  Publicar
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={deletingId === workout.id || !workout.isTest}
+                  onClick={() => void onDelete(workout)}
+                >
+                  {deletingId === workout.id ? "Eliminando..." : "Eliminar"}
+                </Button>
+              </div>
             </div>
           ))}
         </CardContent>

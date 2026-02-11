@@ -110,3 +110,7 @@ class ValidateAttemptResponseDTO(AttemptDTO):
 
 class PublishWorkoutResponseDTO(WorkoutDefinitionSummaryDTO):
     published_at: str = Field(alias="publishedAt")
+
+
+class DeleteWorkoutResponseDTO(DTOModel):
+    status: str

@@ -9,6 +9,7 @@ from src.application.dtos.coach import (
     CoachAthleteDetailDTO,
     CoachAthleteSummaryDTO,
     CoachOverviewDTO,
+    DeleteWorkoutResponseDTO,
     PublishWorkoutResponseDTO,
     RejectAttemptRequestDTO,
     ValidateAttemptResponseDTO,
@@ -113,5 +114,17 @@ async def publish_workout(
 ) -> PublishWorkoutResponseDTO:
     try:
         return service.publish_workout(current_user, workout_id)
+    except ServiceError as exc:
+        raise to_http_exception(exc) from exc
+
+
+@router.delete("/workouts/{workout_id}", response_model=DeleteWorkoutResponseDTO)
+async def delete_workout(
+    workout_id: str,
+    service: Annotated[RuntimeService, Depends(runtime_service_dep)],
+    current_user: Annotated[UserRecord, Depends(current_user_dep)],
+) -> DeleteWorkoutResponseDTO:
+    try:
+        return service.delete_workout(current_user, workout_id)
     except ServiceError as exc:
         raise to_http_exception(exc) from exc

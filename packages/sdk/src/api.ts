@@ -68,6 +68,7 @@ type ApiEndpoints = {
   rejectAttempt: (attemptId: string) => string;
   createWorkout: string;
   publishWorkout: (workoutId: string) => string;
+  deleteWorkout: (workoutId: string) => string;
 };
 
 const DEFAULT_ENDPOINTS: ApiEndpoints = {
@@ -87,6 +88,7 @@ const DEFAULT_ENDPOINTS: ApiEndpoints = {
   rejectAttempt: (attemptId) => `/coach/attempts/${attemptId}/reject`,
   createWorkout: "/coach/workouts",
   publishWorkout: (workoutId) => `/coach/workouts/${workoutId}/publish`,
+  deleteWorkout: (workoutId) => `/coach/workouts/${workoutId}`,
 };
 
 export function createApi(options: CreateApiOptions) {
@@ -207,6 +209,12 @@ export function createApi(options: CreateApiOptions) {
     async publishWorkout(workoutId: string): Promise<WorkoutDefinitionSummaryDTO> {
       return http.request<WorkoutDefinitionSummaryDTO>(endpoints.publishWorkout(workoutId), {
         method: "POST",
+      });
+    },
+
+    async deleteWorkout(workoutId: string): Promise<{ status: string }> {
+      return http.request<{ status: string }>(endpoints.deleteWorkout(workoutId), {
+        method: "DELETE",
       });
     },
 

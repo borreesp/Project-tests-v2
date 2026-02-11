@@ -184,6 +184,30 @@ export interface WorkoutMutationResponseDTO {
   updatedAt: string;
 }
 
+export interface DuplicateWorkoutResponseDTO {
+  id: string;
+}
+
+export interface IdealScoreScopeDTO {
+  idealScoreBase: number;
+  notes: string;
+}
+
+export interface IdealScoreGymDTO extends IdealScoreScopeDTO {
+  gymId: string;
+  gymName: string;
+}
+
+export interface IdealScoreGetResponse {
+  community: IdealScoreScopeDTO | null;
+  gyms: IdealScoreGymDTO[];
+}
+
+export interface IdealScoreUpsertRequest {
+  idealScoreBase: number;
+  notes: string;
+}
+
 export interface CreateAttemptResponse {
   attemptId: string;
   status: AttemptStatus;

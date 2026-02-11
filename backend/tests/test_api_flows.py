@@ -185,7 +185,6 @@ def test_coach_workouts_list_and_duplicate(client: TestClient) -> None:
     assert duplicate_response.status_code == 200
     duplicated = duplicate_response.json()
     assert duplicated["id"] != workout["id"]
-    assert duplicated["scoreType"] == "REPS"
 
 
 def test_create_test_workout_requires_score_type_and_capacity_weights(client: TestClient) -> None:
@@ -199,3 +198,65 @@ def test_create_test_workout_requires_score_type_and_capacity_weights(client: Te
 
     create_response = client.post("/api/v1/coach/workouts", json=payload, headers=coach_headers)
     assert create_response.status_code == 422
+
+
+def test_create_workout_rejects_is_test_false(client: TestClient) -> None:
+    coach_login = _login(client, "coach@local.com", "Coach123!")
+    coach_headers = _auth_headers(coach_login["accessToken"])
+
+    movement_id = client.get("/api/v1/movements").json()[0]["id"]
+    payload = _build_workout_payload(movement_id)
+    payload["isTest"] = False
+
+    create_response = client.post("/api/v1/coach/workouts", json=payload, headers=coach_headers)
+    assert create_response.status_code == 400
+
+
+def test_ideal_scores_permissions_and_upserts(client: TestClient) -> None:
+    coach_login = _login(client, "coach@local.com", "Coach123!")
+    coach_headers = _auth_headers(coach_login["accessToken"])
+
+    admin_login = _login(client, "admin@local.com", "Admin123!")
+    admin_headers = _auth_headers(admin_login["accessToken"])
+
+    movements_response = client.get("/api/v1/movements")
+    assert movements_response.status_code == 200
+    movement_id = movements_response.json()[0]["id"]
+
+    create_response = client.post("/api/v1/coach/workouts", json=_build_workout_payload(movement_id), headers=coach_headers)
+    assert create_response.status_code == 200
+    workout_id = create_response.json()["id"]
+
+    service = get_runtime_service()
+    coach_user = next(user for user in service.users.values() if user.email == "coach@local.com")
+    coach_gym_id = service._coach_gym_id(coach_user.id)  # noqa: SLF001
+    assert coach_gym_id is not None
+
+    coach_gym_ideal_response = client.put(
+        f"/api/v1/coach/workouts/{workout_id}/ideal-scores/gym/{coach_gym_id}",
+        json={"idealScoreBase": 8500, "notes": "Gym baseline"},
+        headers=coach_headers,
+    )
+    assert coach_gym_ideal_response.status_code == 200
+    assert coach_gym_ideal_response.json()["gymId"] == coach_gym_id
+
+    coach_community_response = client.put(
+        f"/api/v1/coach/workouts/{workout_id}/ideal-scores/community",
+        json={"idealScoreBase": 9000, "notes": "Community baseline"},
+        headers=coach_headers,
+    )
+    assert coach_community_response.status_code == 403
+
+    admin_community_response = client.put(
+        f"/api/v1/coach/workouts/{workout_id}/ideal-scores/community",
+        json={"idealScoreBase": 9200, "notes": "Community baseline"},
+        headers=admin_headers,
+    )
+    assert admin_community_response.status_code == 200
+    assert admin_community_response.json()["idealScoreBase"] == 9200
+
+    get_response = client.get(f"/api/v1/coach/workouts/{workout_id}/ideal-scores", headers=coach_headers)
+    assert get_response.status_code == 200
+    payload = get_response.json()
+    assert payload["community"]["idealScoreBase"] == 9200
+    assert any(item["gymId"] == coach_gym_id for item in payload["gyms"])

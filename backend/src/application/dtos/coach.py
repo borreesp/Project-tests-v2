@@ -115,6 +115,10 @@ class CoachWorkoutSummaryDTO(DTOModel):
     score_type: ScoreType | None = Field(default=None, alias="scoreType")
 
 
+class DuplicateWorkoutResponseDTO(DTOModel):
+    id: str
+
+
 class WorkoutMutationResponseDTO(DTOModel):
     id: str
     title: str
@@ -124,6 +128,26 @@ class WorkoutMutationResponseDTO(DTOModel):
     score_type: ScoreType | None = Field(default=None, alias="scoreType")
     published_at: str | None = Field(default=None, alias="publishedAt")
     updated_at: str = Field(alias="updatedAt")
+
+
+class IdealScoreUpsertRequestDTO(DTOModel):
+    ideal_score_base: float = Field(alias="idealScoreBase")
+    notes: str = ""
+
+
+class IdealScoreScopeEntryDTO(DTOModel):
+    ideal_score_base: float = Field(alias="idealScoreBase")
+    notes: str
+
+
+class IdealScoreGymEntryDTO(IdealScoreScopeEntryDTO):
+    gym_id: str = Field(alias="gymId")
+    gym_name: str = Field(alias="gymName")
+
+
+class IdealScoreGetResponseDTO(DTOModel):
+    community: IdealScoreScopeEntryDTO | None = None
+    gyms: list[IdealScoreGymEntryDTO]
 
 
 class ValidateAttemptResponseDTO(AttemptDTO):

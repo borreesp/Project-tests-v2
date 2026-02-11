@@ -1,8 +1,11 @@
-﻿import type {
+import type {
   AthleteDashboardDTO,
   AttemptDTO,
   CoachWorkoutSummaryDTO,
   CreateAttemptResponse,
+  DuplicateWorkoutResponseDTO,
+  IdealScoreGetResponse,
+  IdealScoreUpsertRequest,
   LeaderboardDTO,
   LoginRequest,
   LoginResponse,
@@ -96,6 +99,9 @@ type ApiEndpoints = {
   updateWorkout: (workoutId: string) => string;
   duplicateWorkout: (workoutId: string) => string;
   publishWorkout: (workoutId: string) => string;
+  getIdealScores: (workoutId: string) => string;
+  setCommunityIdealScore: (workoutId: string) => string;
+  setGymIdealScore: (workoutId: string, gymId: string) => string;
 };
 
 const DEFAULT_ENDPOINTS: ApiEndpoints = {
@@ -119,6 +125,9 @@ const DEFAULT_ENDPOINTS: ApiEndpoints = {
   updateWorkout: (workoutId) => `/coach/workouts/${workoutId}`,
   duplicateWorkout: (workoutId) => `/coach/workouts/${workoutId}/duplicate`,
   publishWorkout: (workoutId) => `/coach/workouts/${workoutId}/publish`,
+  getIdealScores: (workoutId) => `/coach/workouts/${workoutId}/ideal-scores`,
+  setCommunityIdealScore: (workoutId) => `/coach/workouts/${workoutId}/ideal-scores/community`,
+  setGymIdealScore: (workoutId, gymId) => `/coach/workouts/${workoutId}/ideal-scores/gym/${gymId}`,
 };
 
 export function createApi(options: CreateApiOptions) {
@@ -253,9 +262,27 @@ export function createApi(options: CreateApiOptions) {
       });
     },
 
-    async duplicateWorkout(workoutId: string): Promise<WorkoutMutationResponseDTO> {
-      return http.request<WorkoutMutationResponseDTO>(endpoints.duplicateWorkout(workoutId), {
+    async duplicateWorkout(workoutId: string): Promise<DuplicateWorkoutResponseDTO> {
+      return http.request<DuplicateWorkoutResponseDTO>(endpoints.duplicateWorkout(workoutId), {
         method: "POST",
+      });
+    },
+
+    async getIdealScores(workoutId: string): Promise<IdealScoreGetResponse> {
+      return http.request<IdealScoreGetResponse>(endpoints.getIdealScores(workoutId));
+    },
+
+    async setCommunityIdealScore(workoutId: string, payload: IdealScoreUpsertRequest): Promise<void> {
+      await http.request<void>(endpoints.setCommunityIdealScore(workoutId), {
+        method: "PUT",
+        body: payload,
+      });
+    },
+
+    async setGymIdealScore(workoutId: string, gymId: string, payload: IdealScoreUpsertRequest): Promise<void> {
+      await http.request<void>(endpoints.setGymIdealScore(workoutId, gymId), {
+        method: "PUT",
+        body: payload,
       });
     },
 

@@ -70,6 +70,11 @@ from src.application.dtos.coach import (
     CoachAthleteSummaryDTO,
     CoachOverviewDTO,
     CoachWorkoutSummaryDTO,
+    DuplicateWorkoutResponseDTO,
+    IdealScoreGetResponseDTO,
+    IdealScoreGymEntryDTO,
+    IdealScoreScopeEntryDTO,
+    IdealScoreUpsertRequestDTO,
     PublishWorkoutResponseDTO,
     ValidateAttemptResponseDTO,
     WorkoutCapacityWeightInputDTO,
@@ -107,6 +112,10 @@ class NotFoundError(ServiceError):
 
 
 class ConflictError(ServiceError):
+    pass
+
+
+class BadRequestError(ServiceError):
     pass
 
 
@@ -850,7 +859,7 @@ class RuntimeService:
 
     def coach_workouts(self, current_user: UserRecord) -> list[CoachWorkoutSummaryDTO]:
         self._require_roles(current_user, {UserRole.COACH, UserRole.ADMIN})
-        workouts = list(self.workouts.values())
+        workouts = [item for item in self.workouts.values() if item.is_test]
         if current_user.role == UserRole.COACH:
             workouts = [item for item in workouts if item.author_coach_user_id == current_user.id]
         workouts.sort(key=lambda item: item.created_at, reverse=True)
@@ -916,8 +925,11 @@ class RuntimeService:
     def create_workout(self, current_user: UserRecord, payload: WorkoutCreateRequestDTO) -> WorkoutMutationResponseDTO:
         with self._lock:
             self._require_roles(current_user, {UserRole.COACH, UserRole.ADMIN})
+            if not payload.is_test:
+                raise BadRequestError("Coach workouts endpoints only accept test workouts (isTest=true)")
             self._assert_movement_ids_exist(payload)
-            self._validate_workout_payload(payload)
+            score_type = payload.score_type or self._default_score_type(payload.type)
+            self._validate_workout_payload(payload, score_type)
 
             now = _now()
             workout = WorkoutDefinitionRecord(
@@ -928,7 +940,7 @@ class RuntimeService:
                 is_test=payload.is_test,
                 type=payload.type,
                 visibility=payload.visibility,
-                score_type=payload.score_type,
+                score_type=score_type,
                 created_at=now,
                 published_at=None,
                 updated_at=now,
@@ -946,6 +958,8 @@ class RuntimeService:
     ) -> WorkoutMutationResponseDTO:
         with self._lock:
             self._require_roles(current_user, {UserRole.COACH, UserRole.ADMIN})
+            if not payload.is_test:
+                raise BadRequestError("Coach workouts endpoints only accept test workouts (isTest=true)")
             workout = self.workouts.get(workout_id)
             if workout is None:
                 raise NotFoundError("Workout not found")
@@ -953,13 +967,14 @@ class RuntimeService:
                 raise ForbiddenError("Coach can only edit own workouts")
 
             self._assert_movement_ids_exist(payload)
-            self._validate_workout_payload(payload)
+            score_type = payload.score_type or self._default_score_type(payload.type)
+            self._validate_workout_payload(payload, score_type)
             workout.title = payload.title
             workout.description = payload.description
             workout.is_test = payload.is_test
             workout.type = payload.type
             workout.visibility = payload.visibility
-            workout.score_type = payload.score_type
+            workout.score_type = score_type
             workout.updated_at = _now()
             self._set_workout_structure(workout, payload.scales, payload.blocks, payload.capacity_weights)
             return self._workout_mutation_to_dto(workout)
@@ -1011,7 +1026,7 @@ class RuntimeService:
                 publishedAt=_iso(workout.published_at) or "",
             )
 
-    def duplicate_workout(self, current_user: UserRecord, workout_id: str) -> WorkoutMutationResponseDTO:
+    def duplicate_workout(self, current_user: UserRecord, workout_id: str) -> DuplicateWorkoutResponseDTO:
         with self._lock:
             self._require_roles(current_user, {UserRole.COACH, UserRole.ADMIN})
             source = self.workouts.get(workout_id)
@@ -1026,10 +1041,10 @@ class RuntimeService:
                 title=f"{source.title} (Copy)",
                 description=source.description,
                 author_coach_user_id=current_user.id,
-                is_test=source.is_test,
+                is_test=True,
                 type=source.type,
                 visibility=source.visibility,
-                score_type=source.score_type,
+                score_type=source.score_type or self._default_score_type(source.type),
                 created_at=now,
                 published_at=None,
                 updated_at=now,
@@ -1040,7 +1055,105 @@ class RuntimeService:
 
             self._set_workout_structure(duplicate, source.scales, source.blocks, source.capacity_weights)
             self.workouts[duplicate.id] = duplicate
-            return self._workout_mutation_to_dto(duplicate)
+            return DuplicateWorkoutResponseDTO(id=duplicate.id)
+
+    def get_workout_ideal_scores(self, current_user: UserRecord, workout_id: str) -> IdealScoreGetResponseDTO:
+        self._require_roles(current_user, {UserRole.COACH, UserRole.ADMIN})
+        workout = self.workouts.get(workout_id)
+        if workout is None:
+            raise NotFoundError("Workout not found")
+        if current_user.role == UserRole.COACH and workout.author_coach_user_id != current_user.id:
+            raise ForbiddenError("Coach can only access own workouts")
+
+        community_profile = next(
+            (
+                item
+                for item in self.ideal_profiles.values()
+                if item.workout_definition_id == workout_id and item.scope == IdealScope.COMMUNITY
+            ),
+            None,
+        )
+        gyms = [
+            IdealScoreGymEntryDTO(
+                gymId=item.gym_id or "",
+                gymName=self.gyms[item.gym_id].name if item.gym_id in self.gyms else item.gym_id or "",
+                idealScoreBase=round(item.ideal_score_base, 2),
+                notes=item.notes,
+            )
+            for item in self.ideal_profiles.values()
+            if item.workout_definition_id == workout_id and item.scope == IdealScope.GYM and item.gym_id is not None
+        ]
+        gyms.sort(key=lambda row: row.gym_name.lower())
+
+        return IdealScoreGetResponseDTO(
+            community=(
+                IdealScoreScopeEntryDTO(
+                    idealScoreBase=round(community_profile.ideal_score_base, 2),
+                    notes=community_profile.notes,
+                )
+                if community_profile is not None
+                else None
+            ),
+            gyms=gyms,
+        )
+
+    def upsert_workout_community_ideal_score(
+        self, current_user: UserRecord, workout_id: str, payload: IdealScoreUpsertRequestDTO
+    ) -> IdealScoreScopeEntryDTO:
+        with self._lock:
+            self._require_roles(current_user, {UserRole.COACH, UserRole.ADMIN})
+            workout = self.workouts.get(workout_id)
+            if workout is None:
+                raise NotFoundError("Workout not found")
+            if current_user.role == UserRole.COACH:
+                raise ForbiddenError("Only admins can update community ideal score")
+
+            profile = self._upsert_ideal_profile(
+                workout_id=workout_id,
+                scope=IdealScope.COMMUNITY,
+                gym_id=None,
+                coach_user_id=current_user.id,
+                ideal_score_base=payload.ideal_score_base,
+                notes=payload.notes,
+            )
+            return IdealScoreScopeEntryDTO(
+                idealScoreBase=round(profile.ideal_score_base, 2),
+                notes=profile.notes,
+            )
+
+    def upsert_workout_gym_ideal_score(
+        self, current_user: UserRecord, workout_id: str, gym_id: str, payload: IdealScoreUpsertRequestDTO
+    ) -> IdealScoreGymEntryDTO:
+        with self._lock:
+            self._require_roles(current_user, {UserRole.COACH, UserRole.ADMIN})
+            workout = self.workouts.get(workout_id)
+            if workout is None:
+                raise NotFoundError("Workout not found")
+            gym = self.gyms.get(gym_id)
+            if gym is None:
+                raise NotFoundError("Gym not found")
+
+            if current_user.role == UserRole.COACH:
+                if workout.author_coach_user_id != current_user.id:
+                    raise ForbiddenError("Coach can only edit own workouts")
+                coach_gym_id = self._coach_gym_id(current_user.id)
+                if coach_gym_id is None or coach_gym_id != gym_id:
+                    raise ForbiddenError("Coach can only edit ideal score for own gym")
+
+            profile = self._upsert_ideal_profile(
+                workout_id=workout_id,
+                scope=IdealScope.GYM,
+                gym_id=gym_id,
+                coach_user_id=current_user.id,
+                ideal_score_base=payload.ideal_score_base,
+                notes=payload.notes,
+            )
+            return IdealScoreGymEntryDTO(
+                gymId=gym.id,
+                gymName=gym.name,
+                idealScoreBase=round(profile.ideal_score_base, 2),
+                notes=profile.notes,
+            )
 
     def get_rankings(
         self,
@@ -1217,11 +1330,15 @@ class RuntimeService:
                 if movement.movement_id not in available_ids:
                     raise ValidationServiceError(f"Movement not found: {movement.movement_id}")
 
-    def _validate_workout_payload(self, payload: WorkoutCreateRequestDTO | WorkoutUpdateRequestDTO) -> None:
+    def _validate_workout_payload(
+        self,
+        payload: WorkoutCreateRequestDTO | WorkoutUpdateRequestDTO,
+        score_type: ScoreType | None,
+    ) -> None:
         self._validate_block_order_and_structure(payload.blocks)
         self._validate_capacity_weights(payload.is_test, payload.capacity_weights)
 
-        if payload.is_test and payload.score_type is None:
+        if payload.is_test and score_type is None:
             raise ValidationServiceError("scoreType is required for test workouts")
 
         if payload.is_test and payload.type in {WorkoutType.AMRAP, WorkoutType.EMOM, WorkoutType.BLOCKS}:
@@ -1231,6 +1348,16 @@ class RuntimeService:
             duration_seconds = self._estimate_duration_seconds(payload.blocks)
             if duration_seconds != 600:
                 raise ValidationServiceError("Test workouts must have fixed duration of 600 seconds")
+
+    def _default_score_type(self, workout_type: WorkoutType) -> ScoreType:
+        mapping: dict[WorkoutType, ScoreType] = {
+            WorkoutType.AMRAP: ScoreType.REPS,
+            WorkoutType.EMOM: ScoreType.REPS,
+            WorkoutType.FORTIME: ScoreType.TIME,
+            WorkoutType.INTERVALS: ScoreType.REPS,
+            WorkoutType.BLOCKS: ScoreType.REPS,
+        }
+        return mapping[workout_type]
 
     def _validate_block_order_and_structure(self, blocks: list) -> None:
         if not blocks:
@@ -1622,6 +1749,44 @@ class RuntimeService:
             ):
                 return assignment
         return None
+
+    def _upsert_ideal_profile(
+        self,
+        workout_id: str,
+        scope: IdealScope,
+        gym_id: str | None,
+        coach_user_id: str,
+        ideal_score_base: float,
+        notes: str,
+    ) -> WorkoutIdealProfileRecord:
+        if ideal_score_base <= 0:
+            raise ValidationServiceError("idealScoreBase must be greater than 0")
+
+        existing = next(
+            (
+                item
+                for item in self.ideal_profiles.values()
+                if item.workout_definition_id == workout_id and item.scope == scope and item.gym_id == gym_id
+            ),
+            None,
+        )
+        if existing is not None:
+            existing.ideal_score_base = float(ideal_score_base)
+            existing.notes = notes
+            existing.coach_user_id = coach_user_id
+            return existing
+
+        profile = WorkoutIdealProfileRecord(
+            id=str(uuid4()),
+            workout_definition_id=workout_id,
+            scope=scope,
+            gym_id=gym_id,
+            coach_user_id=coach_user_id,
+            ideal_score_base=float(ideal_score_base),
+            notes=notes,
+        )
+        self.ideal_profiles[profile.id] = profile
+        return profile
 
     def _user_current_gym(self, current_user: UserRecord) -> str | None:
         if current_user.role == UserRole.ATHLETE:

@@ -10,6 +10,11 @@ from src.application.dtos.coach import (
     CoachAthleteSummaryDTO,
     CoachOverviewDTO,
     CoachWorkoutSummaryDTO,
+    DuplicateWorkoutResponseDTO,
+    IdealScoreGetResponseDTO,
+    IdealScoreGymEntryDTO,
+    IdealScoreScopeEntryDTO,
+    IdealScoreUpsertRequestDTO,
     PublishWorkoutResponseDTO,
     RejectAttemptRequestDTO,
     ValidateAttemptResponseDTO,
@@ -117,14 +122,53 @@ async def update_workout(
         raise to_http_exception(exc) from exc
 
 
-@router.post("/workouts/{workout_id}/duplicate", response_model=WorkoutMutationResponseDTO)
+@router.post("/workouts/{workout_id}/duplicate", response_model=DuplicateWorkoutResponseDTO)
 async def duplicate_workout(
     workout_id: str,
     service: Annotated[RuntimeService, Depends(runtime_service_dep)],
     current_user: Annotated[UserRecord, Depends(current_user_dep)],
-) -> WorkoutMutationResponseDTO:
+) -> DuplicateWorkoutResponseDTO:
     try:
         return service.duplicate_workout(current_user, workout_id)
+    except ServiceError as exc:
+        raise to_http_exception(exc) from exc
+
+
+@router.get("/workouts/{workout_id}/ideal-scores", response_model=IdealScoreGetResponseDTO)
+async def get_workout_ideal_scores(
+    workout_id: str,
+    service: Annotated[RuntimeService, Depends(runtime_service_dep)],
+    current_user: Annotated[UserRecord, Depends(current_user_dep)],
+) -> IdealScoreGetResponseDTO:
+    try:
+        return service.get_workout_ideal_scores(current_user, workout_id)
+    except ServiceError as exc:
+        raise to_http_exception(exc) from exc
+
+
+@router.put("/workouts/{workout_id}/ideal-scores/community", response_model=IdealScoreScopeEntryDTO)
+async def upsert_community_ideal_score(
+    workout_id: str,
+    payload: IdealScoreUpsertRequestDTO,
+    service: Annotated[RuntimeService, Depends(runtime_service_dep)],
+    current_user: Annotated[UserRecord, Depends(current_user_dep)],
+) -> IdealScoreScopeEntryDTO:
+    try:
+        return service.upsert_workout_community_ideal_score(current_user, workout_id, payload)
+    except ServiceError as exc:
+        raise to_http_exception(exc) from exc
+
+
+@router.put("/workouts/{workout_id}/ideal-scores/gym/{gym_id}", response_model=IdealScoreGymEntryDTO)
+async def upsert_gym_ideal_score(
+    workout_id: str,
+    gym_id: str,
+    payload: IdealScoreUpsertRequestDTO,
+    service: Annotated[RuntimeService, Depends(runtime_service_dep)],
+    current_user: Annotated[UserRecord, Depends(current_user_dep)],
+) -> IdealScoreGymEntryDTO:
+    try:
+        return service.upsert_workout_gym_ideal_score(current_user, workout_id, gym_id, payload)
     except ServiceError as exc:
         raise to_http_exception(exc) from exc
 

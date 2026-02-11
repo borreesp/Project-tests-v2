@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.adapters.inbound.http.routers import admin, athlete, auth, coach, public
+from src.adapters.inbound.http.routers import admin, athlete, auth, coach, public, ranking
 from src.infrastructure.config.settings import get_settings
 
 settings = get_settings()
@@ -21,3 +21,4 @@ app.include_router(auth.router)
 app.include_router(athlete.router)
 app.include_router(coach.router)
 app.include_router(admin.router)
+app.include_router(ranking.router)

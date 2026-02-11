@@ -1,15 +1,33 @@
-﻿services:
-  postgres:
-    image: postgres
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   backend:
     build:
-      context: ./backend
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/app
+      CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000"]'
+      JWT_SECRET_KEY: dev-secret-change-me
     depends_on:
-      - postgres
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
 
-  web:
-    build:
-      context: ./apps/web
-    depends_on:
-      - backend
+volumes:
+  postgres_data:

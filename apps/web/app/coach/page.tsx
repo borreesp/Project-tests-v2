@@ -1,3 +1,5 @@
-﻿export default function CoachPage() {
-  return <section className="text-sm">/coach</section>;
+import { redirect } from "next/navigation";
+
+export default function CoachPage() {
+  redirect("/coach/overview");
 }

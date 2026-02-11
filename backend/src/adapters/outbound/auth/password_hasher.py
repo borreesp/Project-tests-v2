@@ -1,6 +1,12 @@
+from passlib.context import CryptContext
+
+
 class PasswordHasher:
+    def __init__(self) -> None:
+        self._context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
     def hash(self, password: str) -> str:
-        raise NotImplementedError
+        return self._context.hash(password)
 
     def verify(self, plain_password: str, hashed_password: str) -> bool:
-        raise NotImplementedError
+        return self._context.verify(plain_password, hashed_password)

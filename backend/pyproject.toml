@@ -11,11 +11,13 @@ fastapi = "*"
 uvicorn = { extras = ["standard"], version = "*" }
 pydantic = "*"
 pydantic-settings = "*"
+email-validator = "*"
 sqlalchemy = "*"
 asyncpg = "*"
 alembic = "*"
 python-jose = { extras = ["cryptography"], version = "*" }
 passlib = { extras = ["bcrypt"], version = "*" }
+bcrypt = "4.0.1"
 httpx = "*"
 pytest = "*"
 pytest-asyncio = "*"

@@ -6,8 +6,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "Backend API"
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/app"
+    database_url: str = "postgresql+asyncpg://postgres:postgres@db:5432/app"
     cors_origins: list[str] = []
+    jwt_secret_key: str = "dev-secret-change-me"
+    jwt_algorithm: str = "HS256"
+    access_token_expires_minutes: int = 30
+    refresh_token_expires_days: int = 30
 
     model_config = SettingsConfigDict(
         env_file=".env",

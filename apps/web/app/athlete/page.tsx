@@ -1,3 +1,5 @@
-﻿export default function AthletePage() {
-  return <section className="text-sm">/athlete</section>;
+import { redirect } from "next/navigation";
+
+export default function AthletePage() {
+  redirect("/athlete/dashboard");
 }

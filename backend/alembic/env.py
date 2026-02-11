@@ -6,6 +6,7 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+from src.adapters.outbound.persistence import models as persistence_models  # noqa: F401
 from src.infrastructure.config.settings import get_settings
 from src.infrastructure.db.base import Base
 

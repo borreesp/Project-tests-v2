@@ -188,6 +188,10 @@ export interface DuplicateWorkoutResponseDTO {
   id: string;
 }
 
+export interface DeleteWorkoutResponseDTO {
+  status: "ok";
+}
+
 export interface IdealScoreScopeDTO {
   idealScoreBase: number;
   notes: string;

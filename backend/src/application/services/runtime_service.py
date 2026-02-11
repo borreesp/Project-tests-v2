@@ -70,6 +70,7 @@ from src.application.dtos.coach import (
     CoachAthleteSummaryDTO,
     CoachOverviewDTO,
     CoachWorkoutSummaryDTO,
+    DeleteWorkoutResponseDTO,
     DuplicateWorkoutResponseDTO,
     IdealScoreGetResponseDTO,
     IdealScoreGymEntryDTO,
@@ -1025,6 +1026,41 @@ class RuntimeService:
                 scoreType=workout.score_type,
                 publishedAt=_iso(workout.published_at) or "",
             )
+
+    def delete_workout(self, current_user: UserRecord, workout_id: str) -> DeleteWorkoutResponseDTO:
+        with self._lock:
+            self._require_roles(current_user, {UserRole.COACH, UserRole.ADMIN})
+            workout = self.workouts.get(workout_id)
+            if workout is None:
+                raise NotFoundError("Workout not found")
+            if not workout.is_test:
+                raise BadRequestError("Only test workouts can be deleted from coach workouts")
+            if current_user.role != UserRole.ADMIN and workout.author_coach_user_id != current_user.id:
+                raise ForbiddenError("Coach can only delete own workouts")
+
+            has_attempts = any(attempt.workout_definition_id == workout_id for attempt in self.attempts.values())
+            if has_attempts:
+                raise ConflictError("No se puede eliminar porque tiene resultados asociados.")
+
+            assignment_ids_to_delete = [
+                assignment.id for assignment in self.assignments.values() if assignment.workout_definition_id == workout_id
+            ]
+            for assignment_id in assignment_ids_to_delete:
+                self.assignments.pop(assignment_id, None)
+
+            ideal_profile_ids_to_delete = [
+                profile.id for profile in self.ideal_profiles.values() if profile.workout_definition_id == workout_id
+            ]
+            for profile_id in ideal_profile_ids_to_delete:
+                self.ideal_profiles.pop(profile_id, None)
+
+            self.leaderboards = {
+                key: board for key, board in self.leaderboards.items() if board.workout_definition_id != workout_id
+            }
+
+            self.workouts.pop(workout_id, None)
+
+            return DeleteWorkoutResponseDTO(status="ok")
 
     def duplicate_workout(self, current_user: UserRecord, workout_id: str) -> DuplicateWorkoutResponseDTO:
         with self._lock:

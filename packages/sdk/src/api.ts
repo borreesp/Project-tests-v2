@@ -3,6 +3,7 @@ import type {
   AttemptDTO,
   CoachWorkoutSummaryDTO,
   CreateAttemptResponse,
+  DeleteWorkoutResponseDTO,
   DuplicateWorkoutResponseDTO,
   IdealScoreGetResponse,
   IdealScoreUpsertRequest,
@@ -98,6 +99,7 @@ type ApiEndpoints = {
   createWorkout: string;
   updateWorkout: (workoutId: string) => string;
   duplicateWorkout: (workoutId: string) => string;
+  deleteWorkout: (workoutId: string) => string;
   publishWorkout: (workoutId: string) => string;
   getIdealScores: (workoutId: string) => string;
   setCommunityIdealScore: (workoutId: string) => string;
@@ -124,6 +126,7 @@ const DEFAULT_ENDPOINTS: ApiEndpoints = {
   createWorkout: "/coach/workouts",
   updateWorkout: (workoutId) => `/coach/workouts/${workoutId}`,
   duplicateWorkout: (workoutId) => `/coach/workouts/${workoutId}/duplicate`,
+  deleteWorkout: (workoutId) => `/coach/workouts/${workoutId}`,
   publishWorkout: (workoutId) => `/coach/workouts/${workoutId}/publish`,
   getIdealScores: (workoutId) => `/coach/workouts/${workoutId}/ideal-scores`,
   setCommunityIdealScore: (workoutId) => `/coach/workouts/${workoutId}/ideal-scores/community`,
@@ -265,6 +268,12 @@ export function createApi(options: CreateApiOptions) {
     async duplicateWorkout(workoutId: string): Promise<DuplicateWorkoutResponseDTO> {
       return http.request<DuplicateWorkoutResponseDTO>(endpoints.duplicateWorkout(workoutId), {
         method: "POST",
+      });
+    },
+
+    async deleteWorkout(workoutId: string): Promise<DeleteWorkoutResponseDTO> {
+      return http.request<DeleteWorkoutResponseDTO>(endpoints.deleteWorkout(workoutId), {
+        method: "DELETE",
       });
     },
 

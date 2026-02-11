@@ -1,5 +1,11 @@
-import { webThemeColors } from "../../packages/ui-tokens/src/index";
 import type { Config } from "tailwindcss";
+
+const path = require("node:path") as typeof import("node:path");
+
+const tokensModulePath = path.resolve(__dirname, "../../packages/ui-tokens/src/index.ts");
+const { webThemeColors } = require(tokensModulePath) as {
+  webThemeColors: NonNullable<Config["theme"]>["extend"] extends { colors?: infer T } ? T : Record<string, unknown>;
+};
 
 const config: Config = {
   darkMode: ["class"],

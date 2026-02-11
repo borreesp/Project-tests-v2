@@ -1,0 +1,15 @@
+﻿services:
+  postgres:
+    image: postgres
+
+  backend:
+    build:
+      context: ./backend
+    depends_on:
+      - postgres
+
+  web:
+    build:
+      context: ./apps/web
+    depends_on:
+      - backend

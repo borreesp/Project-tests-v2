@@ -1,0 +1,15 @@
+﻿{
+  "name": "project-tests-v2",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@10.1.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.8"
+  }
+}

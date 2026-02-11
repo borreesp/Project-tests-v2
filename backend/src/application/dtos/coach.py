@@ -119,6 +119,10 @@ class DuplicateWorkoutResponseDTO(DTOModel):
     id: str
 
 
+class DeleteWorkoutResponseDTO(DTOModel):
+    status: str = "ok"
+
+
 class WorkoutMutationResponseDTO(DTOModel):
     id: str
     title: str

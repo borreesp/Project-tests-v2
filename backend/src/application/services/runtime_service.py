@@ -29,6 +29,7 @@ from src.adapters.outbound.persistence.models.enums import (
     MovementPattern,
     MovementUnit,
     ScaleCode,
+    ScoreType,
     Sex,
     UserRole,
     UserStatus,
@@ -68,14 +69,17 @@ from src.application.dtos.coach import (
     CoachAthleteDetailDTO,
     CoachAthleteSummaryDTO,
     CoachOverviewDTO,
+    CoachWorkoutSummaryDTO,
     PublishWorkoutResponseDTO,
     ValidateAttemptResponseDTO,
+    WorkoutCapacityWeightInputDTO,
     WorkoutCreateRequestDTO,
     WorkoutMutationResponseDTO,
     WorkoutUpdateRequestDTO,
 )
 from src.application.dtos.public import (
     MovementDTO,
+    WorkoutCapacityWeightDTO,
     WorkoutDefinitionDetailDTO,
     WorkoutDefinitionSummaryDTO,
     WorkoutDetailBlockDTO,
@@ -243,6 +247,13 @@ class WorkoutBlockRecord:
 
 
 @dataclass(slots=True)
+class WorkoutCapacityWeightRecord:
+    workout_definition_id: str
+    capacity_type: CapacityType
+    weight: float
+
+
+@dataclass(slots=True)
 class WorkoutDefinitionRecord:
     id: str
     title: str
@@ -251,11 +262,13 @@ class WorkoutDefinitionRecord:
     is_test: bool
     type: WorkoutType
     visibility: WorkoutVisibility
+    score_type: ScoreType | None
     created_at: datetime
     published_at: datetime | None
     updated_at: datetime
     scales: list[WorkoutScaleRecord] = field(default_factory=list)
     blocks: list[WorkoutBlockRecord] = field(default_factory=list)
+    capacity_weights: list[WorkoutCapacityWeightRecord] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -430,10 +443,13 @@ class RuntimeService:
         self.athlete_profiles[athlete_profile.id] = athlete_profile
 
         initial_movements = [
+            ("Air Squat", MovementPattern.SQUAT, MovementUnit.REPS, False, True),
             ("Back Squat", MovementPattern.SQUAT, MovementUnit.REPS, True, False),
             ("Strict Press", MovementPattern.PUSH, MovementUnit.REPS, True, False),
+            ("DB Push Press", MovementPattern.PUSH, MovementUnit.REPS, True, False),
             ("Deadlift", MovementPattern.HINGE, MovementUnit.REPS, True, False),
-            ("Ring Row", MovementPattern.PULL, MovementUnit.REPS, False, True),
+            ("Pull-up strict", MovementPattern.PULL, MovementUnit.REPS, False, True),
+            ("Hollow Hold", MovementPattern.CORE, MovementUnit.SECONDS, False, True),
             ("Farmer Carry", MovementPattern.CARRY, MovementUnit.METERS, True, False),
             ("Sled Push", MovementPattern.LOCOMOTION, MovementUnit.METERS, True, False),
             ("Burpee", MovementPattern.LOCOMOTION, MovementUnit.REPS, False, True),
@@ -832,6 +848,14 @@ class RuntimeService:
             createdAt=_iso(athlete.created_at) or "",
         )
 
+    def coach_workouts(self, current_user: UserRecord) -> list[CoachWorkoutSummaryDTO]:
+        self._require_roles(current_user, {UserRole.COACH, UserRole.ADMIN})
+        workouts = list(self.workouts.values())
+        if current_user.role == UserRole.COACH:
+            workouts = [item for item in workouts if item.author_coach_user_id == current_user.id]
+        workouts.sort(key=lambda item: item.created_at, reverse=True)
+        return [self._coach_workout_summary_to_dto(item) for item in workouts]
+
     def validate_attempt(self, current_user: UserRecord, attempt_id: str) -> ValidateAttemptResponseDTO:
         with self._lock:
             self._require_roles(current_user, {UserRole.COACH, UserRole.ADMIN})
@@ -893,6 +917,7 @@ class RuntimeService:
         with self._lock:
             self._require_roles(current_user, {UserRole.COACH, UserRole.ADMIN})
             self._assert_movement_ids_exist(payload)
+            self._validate_workout_payload(payload)
 
             now = _now()
             workout = WorkoutDefinitionRecord(
@@ -903,14 +928,16 @@ class RuntimeService:
                 is_test=payload.is_test,
                 type=payload.type,
                 visibility=payload.visibility,
+                score_type=payload.score_type,
                 created_at=now,
                 published_at=None,
                 updated_at=now,
                 scales=[],
                 blocks=[],
+                capacity_weights=[],
             )
 
-            self._set_workout_scales_and_blocks(workout, payload.scales, payload.blocks)
+            self._set_workout_structure(workout, payload.scales, payload.blocks, payload.capacity_weights)
             self.workouts[workout.id] = workout
             return self._workout_mutation_to_dto(workout)
 
@@ -926,13 +953,15 @@ class RuntimeService:
                 raise ForbiddenError("Coach can only edit own workouts")
 
             self._assert_movement_ids_exist(payload)
+            self._validate_workout_payload(payload)
             workout.title = payload.title
             workout.description = payload.description
             workout.is_test = payload.is_test
             workout.type = payload.type
             workout.visibility = payload.visibility
+            workout.score_type = payload.score_type
             workout.updated_at = _now()
-            self._set_workout_scales_and_blocks(workout, payload.scales, payload.blocks)
+            self._set_workout_structure(workout, payload.scales, payload.blocks, payload.capacity_weights)
             return self._workout_mutation_to_dto(workout)
 
     def publish_workout(self, current_user: UserRecord, workout_id: str) -> PublishWorkoutResponseDTO:
@@ -978,8 +1007,40 @@ class RuntimeService:
                 isTest=workout.is_test,
                 type=workout.type,
                 visibility=workout.visibility,
+                scoreType=workout.score_type,
                 publishedAt=_iso(workout.published_at) or "",
             )
+
+    def duplicate_workout(self, current_user: UserRecord, workout_id: str) -> WorkoutMutationResponseDTO:
+        with self._lock:
+            self._require_roles(current_user, {UserRole.COACH, UserRole.ADMIN})
+            source = self.workouts.get(workout_id)
+            if source is None:
+                raise NotFoundError("Workout not found")
+            if current_user.role != UserRole.ADMIN and source.author_coach_user_id != current_user.id:
+                raise ForbiddenError("Coach can only duplicate own workouts")
+
+            now = _now()
+            duplicate = WorkoutDefinitionRecord(
+                id=str(uuid4()),
+                title=f"{source.title} (Copy)",
+                description=source.description,
+                author_coach_user_id=current_user.id,
+                is_test=source.is_test,
+                type=source.type,
+                visibility=source.visibility,
+                score_type=source.score_type,
+                created_at=now,
+                published_at=None,
+                updated_at=now,
+                scales=[],
+                blocks=[],
+                capacity_weights=[],
+            )
+
+            self._set_workout_structure(duplicate, source.scales, source.blocks, source.capacity_weights)
+            self.workouts[duplicate.id] = duplicate
+            return self._workout_mutation_to_dto(duplicate)
 
     def get_rankings(
         self,
@@ -1156,14 +1217,102 @@ class RuntimeService:
                 if movement.movement_id not in available_ids:
                     raise ValidationServiceError(f"Movement not found: {movement.movement_id}")
 
-    def _set_workout_scales_and_blocks(
+    def _validate_workout_payload(self, payload: WorkoutCreateRequestDTO | WorkoutUpdateRequestDTO) -> None:
+        self._validate_block_order_and_structure(payload.blocks)
+        self._validate_capacity_weights(payload.is_test, payload.capacity_weights)
+
+        if payload.is_test and payload.score_type is None:
+            raise ValidationServiceError("scoreType is required for test workouts")
+
+        if payload.is_test and payload.type in {WorkoutType.AMRAP, WorkoutType.EMOM, WorkoutType.BLOCKS}:
+            if payload.type == WorkoutType.EMOM and self._is_press_emom_exception(payload.blocks):
+                return
+
+            duration_seconds = self._estimate_duration_seconds(payload.blocks)
+            if duration_seconds != 600:
+                raise ValidationServiceError("Test workouts must have fixed duration of 600 seconds")
+
+    def _validate_block_order_and_structure(self, blocks: list) -> None:
+        if not blocks:
+            raise ValidationServiceError("Workout must contain at least one block")
+
+        ords = sorted(block.ord for block in blocks)
+        expected = list(range(1, len(blocks) + 1))
+        if ords != expected:
+            raise ValidationServiceError("Block ord values must be unique and consecutive (1..n)")
+
+        for block in blocks:
+            movement_ords = sorted(movement.ord for movement in block.movements)
+            expected_movement_ords = list(range(1, len(block.movements) + 1))
+            if movement_ords != expected_movement_ords:
+                raise ValidationServiceError("Block movement ord values must be unique and consecutive (1..n)")
+
+            if block.block_type == BlockType.REST:
+                if block.movements:
+                    raise ValidationServiceError("REST blocks cannot contain movements")
+                if block.time_seconds is None:
+                    raise ValidationServiceError("REST blocks must define timeSeconds")
+            elif block.block_type == BlockType.WORK and len(block.movements) == 0:
+                raise ValidationServiceError("WORK blocks must contain at least one movement")
+
+    def _validate_capacity_weights(self, is_test: bool, weights: list[WorkoutCapacityWeightInputDTO]) -> None:
+        if not weights and not is_test:
+            return
+
+        unique_types = {item.capacity_type for item in weights}
+        if len(unique_types) != len(weights):
+            raise ValidationServiceError("capacityWeights cannot contain duplicated capacityType entries")
+
+        for item in weights:
+            if item.weight < 0 or item.weight > 1:
+                raise ValidationServiceError("capacityWeights values must be between 0 and 1")
+
+        if is_test:
+            expected_types = set(CapacityType)
+            if unique_types != expected_types:
+                raise ValidationServiceError("Test workouts must define 4 capacityWeights entries (one per capacity)")
+            total = sum(item.weight for item in weights)
+            if abs(total - 1.0) > 0.01:
+                raise ValidationServiceError("capacityWeights sum must be 1.00 (+/- 0.01)")
+
+    def _estimate_duration_seconds(self, blocks: list) -> int:
+        total = 0
+        for block in blocks:
+            interval = block.time_seconds if block.time_seconds is not None else block.cap_seconds
+            if interval is None:
+                continue
+            total += int(interval) * int(block.repeat_int)
+        return total
+
+    def _is_press_emom_exception(self, blocks: list) -> bool:
+        if len(blocks) != 20:
+            return False
+
+        ordered = sorted(blocks, key=lambda item: item.ord)
+        for index, block in enumerate(ordered, start=1):
+            expected_type = BlockType.WORK if index % 2 == 1 else BlockType.REST
+            if block.block_type != expected_type:
+                return False
+            if block.time_seconds != 60:
+                return False
+            if block.repeat_int != 1:
+                return False
+            if expected_type == BlockType.WORK and len(block.movements) == 0:
+                return False
+            if expected_type == BlockType.REST and len(block.movements) > 0:
+                return False
+        return True
+
+    def _set_workout_structure(
         self,
         workout: WorkoutDefinitionRecord,
         scales: list,
         blocks: list,
+        capacity_weights: list,
     ) -> None:
         workout.scales = []
         for scale in scales:
+            reference_loads = getattr(scale, "reference_loads", getattr(scale, "reference_loads_json", {}))
             workout.scales.append(
                 WorkoutScaleRecord(
                     id=str(uuid4()),
@@ -1171,7 +1320,7 @@ class RuntimeService:
                     code=scale.code,
                     label=scale.label,
                     notes=scale.notes,
-                    reference_loads_json={k: v for k, v in scale.reference_loads.items()},
+                    reference_loads_json={k: v for k, v in reference_loads.items()},
                 )
             )
 
@@ -1207,6 +1356,16 @@ class RuntimeService:
                 )
 
             workout.blocks.append(block_record)
+
+        workout.capacity_weights = []
+        for item in capacity_weights:
+            workout.capacity_weights.append(
+                WorkoutCapacityWeightRecord(
+                    workout_definition_id=workout.id,
+                    capacity_type=item.capacity_type,
+                    weight=float(item.weight),
+                )
+            )
 
     def _validate_primary_result_for_workout(self, workout_type: WorkoutType, result_type: str) -> None:
         allowed_map = {
@@ -1292,7 +1451,7 @@ class RuntimeService:
         for capacity_type in CapacityType:
             sequence: list[float] = []
             for attempt, result, workout in validated_records:
-                weights = self._capacity_weights(workout.title)
+                weights = self._capacity_weights(workout)
                 weight = weights.get(capacity_type)
                 if weight is None:
                     continue
@@ -1321,8 +1480,11 @@ class RuntimeService:
 
         self._recompute_pulse(athlete_id, now)
 
-    def _capacity_weights(self, workout_title: str) -> dict[CapacityType, float]:
-        name = workout_title.lower()
+    def _capacity_weights(self, workout: WorkoutDefinitionRecord) -> dict[CapacityType, float]:
+        if workout.capacity_weights:
+            return {item.capacity_type: float(item.weight) for item in workout.capacity_weights}
+
+        name = workout.title.lower()
         if "farmer" in name and "sled" in name:
             return {CapacityType.WORK_CAPACITY: 0.8, CapacityType.MUSCULAR_ENDURANCE: 0.2}
         if "deadlift" in name and "farmer" in name:
@@ -1599,6 +1761,7 @@ class RuntimeService:
             isTest=workout.is_test,
             type=workout.type,
             visibility=workout.visibility,
+            scoreType=workout.score_type,
             publishedAt=_iso(workout.published_at),
         )
 
@@ -1655,8 +1818,13 @@ class RuntimeService:
             isTest=workout.is_test,
             type=workout.type,
             visibility=workout.visibility,
+            scoreType=workout.score_type,
             scales=scales,
             blocks=blocks,
+            capacityWeights=[
+                WorkoutCapacityWeightDTO(capacityType=item.capacity_type, weight=round(item.weight, 2))
+                for item in sorted(workout.capacity_weights, key=lambda row: row.capacity_type.value)
+            ],
         )
 
     def _attempt_to_dto(self, attempt: WorkoutAttemptRecord) -> AttemptDTO:
@@ -1678,8 +1846,20 @@ class RuntimeService:
             isTest=workout.is_test,
             type=workout.type,
             visibility=workout.visibility,
+            scoreType=workout.score_type,
             publishedAt=_iso(workout.published_at),
             updatedAt=_iso(workout.updated_at) or "",
+        )
+
+    def _coach_workout_summary_to_dto(self, workout: WorkoutDefinitionRecord) -> CoachWorkoutSummaryDTO:
+        return CoachWorkoutSummaryDTO(
+            id=workout.id,
+            title=workout.title,
+            isTest=workout.is_test,
+            type=workout.type,
+            visibility=workout.visibility,
+            scoreType=workout.score_type,
+            publishedAt=_iso(workout.published_at),
         )
 
 

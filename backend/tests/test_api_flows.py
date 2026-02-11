@@ -20,6 +20,13 @@ def _build_workout_payload(movement_id: str) -> dict:
         "isTest": True,
         "type": "AMRAP",
         "visibility": "GYMS_ONLY",
+        "scoreType": "REPS",
+        "capacityWeights": [
+            {"capacityType": "STRENGTH", "weight": 0.4},
+            {"capacityType": "MUSCULAR_ENDURANCE", "weight": 0.3},
+            {"capacityType": "RELATIVE_STRENGTH", "weight": 0.2},
+            {"capacityType": "WORK_CAPACITY", "weight": 0.1},
+        ],
         "scales": [
             {"code": "RX", "label": "RX", "notes": "", "referenceLoads": {}},
             {"code": "SCALED", "label": "Scaled", "notes": "", "referenceLoads": {}},
@@ -151,3 +158,44 @@ def test_create_workout_create_attempt_submit_validate_dashboard(client: TestCli
     dashboard = dashboard_response.json()
     assert dashboard["counts"]["tests30d"] >= 1
     assert len(dashboard["capacities"]) == 4
+
+
+def test_coach_workouts_list_and_duplicate(client: TestClient) -> None:
+    coach_login = _login(client, "coach@local.com", "Coach123!")
+    coach_headers = _auth_headers(coach_login["accessToken"])
+
+    movements_response = client.get("/api/v1/movements")
+    assert movements_response.status_code == 200
+    movement_id = movements_response.json()[0]["id"]
+
+    create_response = client.post(
+        "/api/v1/coach/workouts",
+        json=_build_workout_payload(movement_id),
+        headers=coach_headers,
+    )
+    assert create_response.status_code == 200
+    workout = create_response.json()
+    assert workout["scoreType"] == "REPS"
+
+    list_response = client.get("/api/v1/coach/workouts", headers=coach_headers)
+    assert list_response.status_code == 200
+    assert any(item["id"] == workout["id"] and item["scoreType"] == "REPS" for item in list_response.json())
+
+    duplicate_response = client.post(f"/api/v1/coach/workouts/{workout['id']}/duplicate", headers=coach_headers)
+    assert duplicate_response.status_code == 200
+    duplicated = duplicate_response.json()
+    assert duplicated["id"] != workout["id"]
+    assert duplicated["scoreType"] == "REPS"
+
+
+def test_create_test_workout_requires_score_type_and_capacity_weights(client: TestClient) -> None:
+    coach_login = _login(client, "coach@local.com", "Coach123!")
+    coach_headers = _auth_headers(coach_login["accessToken"])
+
+    movement_id = client.get("/api/v1/movements").json()[0]["id"]
+    payload = _build_workout_payload(movement_id)
+    payload.pop("scoreType")
+    payload["capacityWeights"] = [{"capacityType": "STRENGTH", "weight": 0.5}]
+
+    create_response = client.post("/api/v1/coach/workouts", json=payload, headers=coach_headers)
+    assert create_response.status_code == 422

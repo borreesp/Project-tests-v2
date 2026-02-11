@@ -3,10 +3,12 @@ from pydantic import Field
 from src.application.dtos.base import DTOModel
 from src.adapters.outbound.persistence.models.enums import (
     BlockType,
+    CapacityType,
     LoadRule,
     MovementPattern,
     MovementUnit,
     ScaleCode,
+    ScoreType,
     WorkoutType,
     WorkoutVisibility,
 )
@@ -27,6 +29,7 @@ class WorkoutDefinitionSummaryDTO(DTOModel):
     is_test: bool = Field(alias="isTest")
     type: WorkoutType
     visibility: WorkoutVisibility
+    score_type: ScoreType | None = Field(default=None, alias="scoreType")
     published_at: str | None = Field(default=None, alias="publishedAt")
 
 
@@ -35,6 +38,11 @@ class WorkoutScaleDTO(DTOModel):
     label: str
     notes: str
     reference_loads: dict[str, object] = Field(alias="referenceLoads")
+
+
+class WorkoutCapacityWeightDTO(DTOModel):
+    capacity_type: CapacityType = Field(alias="capacityType")
+    weight: float
 
 
 class WorkoutDetailBlockMovementDTO(DTOModel):
@@ -68,5 +76,7 @@ class WorkoutDefinitionDetailDTO(DTOModel):
     is_test: bool = Field(alias="isTest")
     type: WorkoutType
     visibility: WorkoutVisibility
+    score_type: ScoreType | None = Field(default=None, alias="scoreType")
     scales: list[WorkoutScaleDTO]
     blocks: list[WorkoutDetailBlockDTO]
+    capacity_weights: list[WorkoutCapacityWeightDTO] = Field(default_factory=list, alias="capacityWeights")

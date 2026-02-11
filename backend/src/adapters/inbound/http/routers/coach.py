@@ -9,6 +9,7 @@ from src.application.dtos.coach import (
     CoachAthleteDetailDTO,
     CoachAthleteSummaryDTO,
     CoachOverviewDTO,
+    CoachWorkoutSummaryDTO,
     PublishWorkoutResponseDTO,
     RejectAttemptRequestDTO,
     ValidateAttemptResponseDTO,
@@ -80,6 +81,17 @@ async def reject_attempt(
         raise to_http_exception(exc) from exc
 
 
+@router.get("/workouts", response_model=list[CoachWorkoutSummaryDTO])
+async def coach_workouts(
+    service: Annotated[RuntimeService, Depends(runtime_service_dep)],
+    current_user: Annotated[UserRecord, Depends(current_user_dep)],
+) -> list[CoachWorkoutSummaryDTO]:
+    try:
+        return service.coach_workouts(current_user)
+    except ServiceError as exc:
+        raise to_http_exception(exc) from exc
+
+
 @router.post("/workouts", response_model=WorkoutMutationResponseDTO)
 async def create_workout(
     payload: WorkoutCreateRequestDTO,
@@ -101,6 +113,18 @@ async def update_workout(
 ) -> WorkoutMutationResponseDTO:
     try:
         return service.update_workout(current_user, workout_id, payload)
+    except ServiceError as exc:
+        raise to_http_exception(exc) from exc
+
+
+@router.post("/workouts/{workout_id}/duplicate", response_model=WorkoutMutationResponseDTO)
+async def duplicate_workout(
+    workout_id: str,
+    service: Annotated[RuntimeService, Depends(runtime_service_dep)],
+    current_user: Annotated[UserRecord, Depends(current_user_dep)],
+) -> WorkoutMutationResponseDTO:
+    try:
+        return service.duplicate_workout(current_user, workout_id)
     except ServiceError as exc:
         raise to_http_exception(exc) from exc
 

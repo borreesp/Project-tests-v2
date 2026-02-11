@@ -7,10 +7,12 @@ from src.application.dtos.base import DTOModel
 from src.application.dtos.public import WorkoutDefinitionSummaryDTO
 from src.adapters.outbound.persistence.models.enums import (
     BlockType,
+    CapacityType,
     LoadRule,
     MovementPattern,
     MovementUnit,
     ScaleCode,
+    ScoreType,
     WorkoutType,
     WorkoutVisibility,
 )
@@ -74,14 +76,21 @@ class WorkoutBlockInputDTO(DTOModel):
     movements: list[WorkoutBlockMovementInputDTO]
 
 
+class WorkoutCapacityWeightInputDTO(DTOModel):
+    capacity_type: CapacityType = Field(alias="capacityType")
+    weight: float
+
+
 class WorkoutCreateRequestDTO(DTOModel):
     title: str
     description: str = ""
     is_test: bool = Field(default=False, alias="isTest")
     type: WorkoutType
     visibility: WorkoutVisibility
+    score_type: ScoreType | None = Field(default=None, alias="scoreType")
     scales: list[WorkoutScaleInputDTO]
     blocks: list[WorkoutBlockInputDTO]
+    capacity_weights: list[WorkoutCapacityWeightInputDTO] = Field(default_factory=list, alias="capacityWeights")
 
 
 class WorkoutUpdateRequestDTO(DTOModel):
@@ -90,8 +99,20 @@ class WorkoutUpdateRequestDTO(DTOModel):
     is_test: bool = Field(default=False, alias="isTest")
     type: WorkoutType
     visibility: WorkoutVisibility
+    score_type: ScoreType | None = Field(default=None, alias="scoreType")
     scales: list[WorkoutScaleInputDTO]
     blocks: list[WorkoutBlockInputDTO]
+    capacity_weights: list[WorkoutCapacityWeightInputDTO] = Field(default_factory=list, alias="capacityWeights")
+
+
+class CoachWorkoutSummaryDTO(DTOModel):
+    id: str
+    title: str
+    is_test: bool = Field(alias="isTest")
+    type: WorkoutType
+    visibility: WorkoutVisibility
+    published_at: str | None = Field(default=None, alias="publishedAt")
+    score_type: ScoreType | None = Field(default=None, alias="scoreType")
 
 
 class WorkoutMutationResponseDTO(DTOModel):
@@ -100,6 +121,7 @@ class WorkoutMutationResponseDTO(DTOModel):
     is_test: bool = Field(alias="isTest")
     type: WorkoutType
     visibility: WorkoutVisibility
+    score_type: ScoreType | None = Field(default=None, alias="scoreType")
     published_at: str | None = Field(default=None, alias="publishedAt")
     updated_at: str = Field(alias="updatedAt")
 

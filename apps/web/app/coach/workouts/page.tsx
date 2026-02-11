@@ -1,39 +1,39 @@
-"use client";
+﻿"use client";
 
-import { FormEvent, useEffect, useState } from "react";
-import type { MovementDTO, WorkoutDefinitionSummaryDTO, WorkoutType, WorkoutVisibility } from "@packages/types";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import type { CoachWorkoutSummaryDTO, WorkoutType } from "@packages/types";
 
 import { ErrorState, LoadingState } from "@/components/state-view";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { webApi } from "@/lib/sdk";
 
+type PublishedFilter = "ALL" | "PUBLISHED" | "DRAFT";
+type IsTestFilter = "ALL" | "TRUE" | "FALSE";
+
 export default function CoachWorkoutsPage() {
-  const [workouts, setWorkouts] = useState<WorkoutDefinitionSummaryDTO[]>([]);
-  const [movements, setMovements] = useState<MovementDTO[]>([]);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [workouts, setWorkouts] = useState<CoachWorkoutSummaryDTO[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [runningActionId, setRunningActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [title, setTitle] = useState("Base Test");
-  const [description, setDescription] = useState("Single-block workout");
-  const [isTest, setIsTest] = useState(true);
-  const [type, setType] = useState<WorkoutType>("AMRAP");
-  const [visibility, setVisibility] = useState<WorkoutVisibility>("GYMS_ONLY");
-  const [movementId, setMovementId] = useState("");
-  const [reps, setReps] = useState("20");
+  const [isTestFilter, setIsTestFilter] = useState<IsTestFilter>("TRUE");
+  const [typeFilter, setTypeFilter] = useState<"ALL" | WorkoutType>("ALL");
+  const [publishedFilter, setPublishedFilter] = useState<PublishedFilter>("ALL");
 
-  async function loadData() {
-    const [workoutsResponse, movementsResponse] = await Promise.all([webApi.listWorkouts(), webApi.listMovements()]);
-    setWorkouts(workoutsResponse);
-    setMovements(movementsResponse);
-    if (!movementId && movementsResponse[0]) {
-      setMovementId(movementsResponse[0].id);
-    }
+  const notice = searchParams.get("notice");
+
+  async function loadWorkouts() {
+    const response = await webApi.coachWorkouts();
+    setWorkouts(response);
   }
 
   useEffect(() => {
@@ -41,10 +41,10 @@ export default function CoachWorkoutsPage() {
 
     async function load() {
       try {
-        await loadData();
+        await loadWorkouts();
       } catch (err) {
         if (!active) return;
-        setError(err instanceof Error ? err.message : "No se pudo cargar workouts");
+        setError(err instanceof Error ? err.message : "No se pudieron cargar los workouts");
       } finally {
         if (active) {
           setLoading(false);
@@ -59,77 +59,48 @@ export default function CoachWorkoutsPage() {
     };
   }, []);
 
-  async function onCreateWorkout(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!movementId) return;
+  const filtered = useMemo(() => {
+    return workouts.filter((item) => {
+      if (isTestFilter === "TRUE" && !item.isTest) return false;
+      if (isTestFilter === "FALSE" && item.isTest) return false;
 
-    setSaving(true);
+      if (typeFilter !== "ALL" && item.type !== typeFilter) return false;
+
+      if (publishedFilter === "PUBLISHED" && !item.publishedAt) return false;
+      if (publishedFilter === "DRAFT" && item.publishedAt) return false;
+
+      return true;
+    });
+  }, [isTestFilter, typeFilter, publishedFilter, workouts]);
+
+  async function onDuplicate(workoutId: string) {
     setError(null);
-
+    setRunningActionId(workoutId);
     try {
-      await webApi.createWorkout({
-        title,
-        description,
-        isTest,
-        type,
-        visibility,
-        scales: [
-          {
-            code: "RX",
-            label: "RX",
-            notes: "",
-            referenceLoads: {},
-          },
-          {
-            code: "SCALED",
-            label: "Scaled",
-            notes: "",
-            referenceLoads: {},
-          },
-        ],
-        blocks: [
-          {
-            ord: 1,
-            name: "Main",
-            blockType: "WORK",
-            repeatInt: 1,
-            movements: [
-              {
-                ord: 1,
-                movementId,
-                reps: Number(reps),
-                loadRule: "ATHLETE_CHOICE",
-                notes: "",
-              },
-            ],
-          },
-        ],
-      });
-
-      await loadData();
-      setTitle("Base Test");
-      setDescription("Single-block workout");
-      setReps("20");
+      await webApi.duplicateWorkout(workoutId);
+      await loadWorkouts();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo crear workout");
+      setError(err instanceof Error ? err.message : "No se pudo duplicar");
     } finally {
-      setSaving(false);
+      setRunningActionId(null);
     }
   }
 
   async function onPublish(workoutId: string) {
     setError(null);
-
+    setRunningActionId(workoutId);
     try {
       await webApi.publishWorkout(workoutId);
-      await loadData();
+      await loadWorkouts();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo publicar workout");
+      setError(err instanceof Error ? err.message : "No se pudo publicar");
+    } finally {
+      setRunningActionId(null);
     }
   }
 
   if (loading) {
-    return <LoadingState message="Cargando workouts..." />;
+    return <LoadingState message="Cargando workouts de coach..." />;
   }
 
   if (error && workouts.length === 0) {
@@ -138,89 +109,94 @@ export default function CoachWorkoutsPage() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Crear workout</CardTitle>
-          <CardDescription>Builder basico (1 bloque, 1 movimiento)</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form className="grid gap-4" onSubmit={onCreateWorkout}>
-            <div className="space-y-2">
-              <Label htmlFor="title">Titulo</Label>
-              <Input id="title" value={title} onChange={(event) => setTitle(event.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Descripcion</Label>
-              <Textarea id="description" value={description} onChange={(event) => setDescription(event.target.value)} />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-2">
-                <Label htmlFor="type">Type</Label>
-                <Select id="type" value={type} onChange={(event) => setType(event.target.value as WorkoutType)}>
-                  <option value="AMRAP">AMRAP</option>
-                  <option value="EMOM">EMOM</option>
-                  <option value="FORTIME">FORTIME</option>
-                  <option value="INTERVALS">INTERVALS</option>
-                  <option value="BLOCKS">BLOCKS</option>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="visibility">Visibility</Label>
-                <Select id="visibility" value={visibility} onChange={(event) => setVisibility(event.target.value as WorkoutVisibility)}>
-                  <option value="COMMUNITY">COMMUNITY</option>
-                  <option value="GYMS_ONLY">GYMS_ONLY</option>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="isTest">Is test</Label>
-                <Select id="isTest" value={String(isTest)} onChange={(event) => setIsTest(event.target.value === "true")}>
-                  <option value="true">true</option>
-                  <option value="false">false</option>
-                </Select>
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="movementId">Movement</Label>
-                <Select id="movementId" value={movementId} onChange={(event) => setMovementId(event.target.value)}>
-                  {movements.map((movement) => (
-                    <option key={movement.id} value={movement.id}>
-                      {movement.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="reps">Reps</Label>
-                <Input id="reps" type="number" min={1} value={reps} onChange={(event) => setReps(event.target.value)} />
-              </div>
-            </div>
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
-            <Button type="submit" disabled={saving || !movementId}>
-              {saving ? "Guardando..." : "Crear"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      {notice ? (
+        <Card className="border-emerald-500/40 bg-emerald-500/10">
+          <CardContent className="py-3 text-sm text-emerald-900">{notice}</CardContent>
+        </Card>
+      ) : null}
 
       <Card>
-        <CardHeader>
-          <CardTitle>Workouts</CardTitle>
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle>Coach Workouts</CardTitle>
+          <Link className={buttonVariants({ variant: "default" })} href="/coach/workouts/new">
+            Crear Test
+          </Link>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {workouts.map((workout) => (
-            <div key={workout.id} className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="font-medium">{workout.title}</p>
-                <p className="text-sm text-muted-foreground">
-                  {workout.type} | {workout.visibility} | {workout.publishedAt ? "Published" : "Draft"}
-                </p>
-              </div>
-              <Button variant="outline" onClick={() => void onPublish(workout.id)}>
-                Publicar
-              </Button>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">is_test</p>
+              <Select value={isTestFilter} onChange={(event) => setIsTestFilter(event.target.value as IsTestFilter)}>
+                <option value="TRUE">Solo tests</option>
+                <option value="FALSE">Solo no-tests</option>
+                <option value="ALL">Todos</option>
+              </Select>
             </div>
-          ))}
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">type</p>
+              <Select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as "ALL" | WorkoutType)}>
+                <option value="ALL">Todos</option>
+                <option value="AMRAP">AMRAP</option>
+                <option value="EMOM">EMOM</option>
+                <option value="FORTIME">FORTIME</option>
+                <option value="INTERVALS">INTERVALS</option>
+                <option value="BLOCKS">BLOCKS</option>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">published</p>
+              <Select value={publishedFilter} onChange={(event) => setPublishedFilter(event.target.value as PublishedFilter)}>
+                <option value="ALL">Todos</option>
+                <option value="PUBLISHED">Publicados</option>
+                <option value="DRAFT">Borradores</option>
+              </Select>
+            </div>
+          </div>
+
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Titulo</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Score</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((item) => {
+                const actionRunning = runningActionId === item.id;
+                return (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {item.title}
+                        {item.isTest ? <Badge variant="secondary">TEST</Badge> : null}
+                      </div>
+                    </TableCell>
+                    <TableCell>{item.type}</TableCell>
+                    <TableCell>{item.scoreType ?? "-"}</TableCell>
+                    <TableCell>{item.publishedAt ? "Publicado" : "Draft"}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" size="sm" onClick={() => router.push(`/coach/workouts/${item.id}/edit`)}>
+                          Editar
+                        </Button>
+                        <Button variant="outline" size="sm" disabled={actionRunning} onClick={() => void onDuplicate(item.id)}>
+                          Duplicar
+                        </Button>
+                        <Button size="sm" disabled={actionRunning} onClick={() => void onPublish(item.id)}>
+                          Publicar
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </div>

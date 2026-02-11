@@ -39,6 +39,7 @@ from src.adapters.outbound.persistence.models.enums import (
     LOAD_RULE_DB_ENUM,
     MOVEMENT_PATTERN_DB_ENUM,
     MOVEMENT_UNIT_DB_ENUM,
+    SCORE_TYPE_DB_ENUM,
     SCALE_CODE_DB_ENUM,
     SEX_DB_ENUM,
     USER_ROLE_DB_ENUM,
@@ -62,6 +63,7 @@ from src.adapters.outbound.persistence.models.enums import (
     MovementPattern,
     MovementUnit,
     ScaleCode,
+    ScoreType,
     Sex,
     UserRole,
     UserStatus,
@@ -298,6 +300,7 @@ class WorkoutDefinitionModel(Base):
     is_test: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     type: Mapped[WorkoutType] = mapped_column(WORKOUT_TYPE_DB_ENUM, nullable=False)
     visibility: Mapped[WorkoutVisibility] = mapped_column(WORKOUT_VISIBILITY_DB_ENUM, nullable=False)
+    score_type: Mapped[ScoreType | None] = mapped_column(SCORE_TYPE_DB_ENUM, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -495,6 +498,21 @@ class WorkoutIdealProfileModel(Base):
     coach_user_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     ideal_score_base: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     notes: Mapped[str] = mapped_column(String(200), nullable=False, server_default=text("''"))
+
+
+class WorkoutCapacityWeightModel(Base):
+    __tablename__ = "workout_capacity_weights"
+    __table_args__ = (
+        CheckConstraint("weight >= 0 AND weight <= 1", name="ck_workout_capacity_weights_weight_range"),
+    )
+
+    workout_definition_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("workout_definitions.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    capacity_type: Mapped[CapacityType] = mapped_column(CAPACITY_TYPE_DB_ENUM, primary_key=True)
+    weight: Mapped[Decimal] = mapped_column(Numeric(3, 2), nullable=False)
 
 
 class AthleteCapacityModel(Base):

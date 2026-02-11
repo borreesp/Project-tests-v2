@@ -65,6 +65,13 @@ class WorkoutVisibility(str, Enum):
     GYMS_ONLY = "GYMS_ONLY"
 
 
+class ScoreType(str, Enum):
+    REPS = "REPS"
+    METERS = "METERS"
+    TIME = "TIME"
+    ROUNDS_METERS = "ROUNDS_METERS"
+
+
 class ScaleCode(str, Enum):
     RX = "RX"
     SCALED = "SCALED"
@@ -159,6 +166,12 @@ WORKOUT_TYPE_DB_ENUM = SQLEnum(WorkoutType, name="workout_type_enum", native_enu
 WORKOUT_VISIBILITY_DB_ENUM = SQLEnum(
     WorkoutVisibility,
     name="workout_visibility_enum",
+    native_enum=True,
+    validate_strings=True,
+)
+SCORE_TYPE_DB_ENUM = SQLEnum(
+    ScoreType,
+    name="score_type_enum",
     native_enum=True,
     validate_strings=True,
 )

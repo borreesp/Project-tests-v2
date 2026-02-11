@@ -16,6 +16,7 @@ from src.adapters.outbound.persistence.models.enums import (
     MovementPattern,
     MovementUnit,
     ScaleCode,
+    ScoreType,
     Sex,
     UserRole,
     UserStatus,
@@ -43,6 +44,7 @@ from src.adapters.outbound.persistence.models.models import (
     WorkoutDefinitionModel,
     WorkoutIdealProfileModel,
     WorkoutResultModel,
+    WorkoutCapacityWeightModel,
     WorkoutScaleModel,
 )
 
@@ -77,6 +79,7 @@ __all__ = [
     "MovementUnit",
     "RefreshTokenModel",
     "ScaleCode",
+    "ScoreType",
     "Sex",
     "UserModel",
     "UserRole",
@@ -87,6 +90,7 @@ __all__ = [
     "WorkoutDefinitionModel",
     "WorkoutIdealProfileModel",
     "WorkoutResultModel",
+    "WorkoutCapacityWeightModel",
     "WorkoutScaleModel",
     "WorkoutType",
     "WorkoutVisibility",

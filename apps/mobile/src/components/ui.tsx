@@ -1,4 +1,4 @@
-import { colors, radius, spacing, typography } from "@packages/ui-tokens";
+import { buttonColors, colors, radius, spacing, typography } from "@packages/ui-tokens";
 import type { ComponentProps, ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
@@ -56,7 +56,7 @@ export function AppButton({
   label: string;
   onPress: () => void;
   disabled?: boolean;
-  variant?: "primary" | "secondary" | "danger" | "ghost";
+  variant?: "primary" | "secondary" | "destructive" | "ghost";
 }) {
   return (
     <Pressable
@@ -66,7 +66,7 @@ export function AppButton({
         styles.button,
         variant === "primary" ? styles.buttonPrimary : null,
         variant === "secondary" ? styles.buttonSecondary : null,
-        variant === "danger" ? styles.buttonDanger : null,
+        variant === "destructive" ? styles.buttonDestructive : null,
         variant === "ghost" ? styles.buttonGhost : null,
         pressed ? styles.buttonPressed : null,
         disabled ? styles.buttonDisabled : null,
@@ -163,7 +163,7 @@ export const uiStyles = StyleSheet.create({
     padding: spacing.sm,
   },
   listItemSelected: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: colors.surface,
     borderColor: colors.primary,
   },
   listItemTitle: {
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     fontSize: typography.sm,
   },
   card: {
-    backgroundColor: "#ffffff",
+    backgroundColor: colors.background,
     borderColor: colors.border,
     borderRadius: radius.md,
     borderWidth: 1,
@@ -265,13 +265,13 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   buttonPrimary: {
-    backgroundColor: colors.primary,
+    backgroundColor: buttonColors.primary.default,
   },
   buttonSecondary: {
-    backgroundColor: colors.secondary,
+    backgroundColor: buttonColors.secondary.default,
   },
-  buttonDanger: {
-    backgroundColor: "#dc2626",
+  buttonDestructive: {
+    backgroundColor: buttonColors.destructive.default,
   },
   buttonGhost: {
     backgroundColor: "transparent",
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   buttonText: {
-    color: "#ffffff",
+    color: buttonColors.primary.text,
     fontSize: typography.sm,
     fontWeight: "700",
   },
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   optionTextSelected: {
-    color: "#ffffff",
+    color: buttonColors.primary.text,
   },
   progressTrack: {
     backgroundColor: colors.secondary,
@@ -331,12 +331,12 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   errorText: {
-    color: "#dc2626",
+    color: colors.error,
     fontSize: typography.sm,
     fontWeight: "600",
   },
   successText: {
-    color: "#16a34a",
+    color: colors.success,
     fontSize: typography.sm,
     fontWeight: "600",
   },

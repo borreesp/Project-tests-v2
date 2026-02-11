@@ -20,7 +20,8 @@
     "recharts": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "tailwind-merge": "latest"
+    "tailwind-merge": "latest",
+    "@packages/ui-tokens": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "latest",

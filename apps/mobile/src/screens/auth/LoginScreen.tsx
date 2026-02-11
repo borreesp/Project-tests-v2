@@ -1,8 +1,9 @@
 import { useCallback, useState } from "react";
-import { Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import { mobileApi } from "../../../lib/sdk";
 import { AppButton, Card, FieldInput, InlineError, Label, ScreenContainer, ScreenHeader } from "../../components/ui";
+import { colors, typography } from "@packages/ui-tokens";
 import { extractErrorMessage, normalizeRole } from "../../lib/session";
 import type { LoginScreenProps, SessionHandler } from "../../navigation/types";
 
@@ -53,8 +54,16 @@ export function LoginScreen({ navigation, onAuthenticated }: LoginScreenProps & 
         <AppButton disabled={isSubmitting} label={isSubmitting ? "Entrando..." : "Entrar"} onPress={() => void onLogin()} />
         <AppButton label="Registro por invite" onPress={() => navigation.navigate("RegisterFromInviteScreen")} variant="secondary" />
 
-        <Text style={{ color: "#64748b", fontSize: 12 }}>Demo: admin@local.com, coach@local.com, athlete@local.com</Text>
+        <Text style={styles.demoHint}>Demo: admin@local.com, coach@local.com, athlete@local.com</Text>
       </Card>
     </ScreenContainer>
   );
 }
+
+
+const styles = StyleSheet.create({
+  demoHint: {
+    color: colors.textSecondary,
+    fontSize: typography.xs,
+  },
+});

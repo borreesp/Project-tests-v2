@@ -9,8 +9,8 @@ import { extractErrorMessage, isUnauthorizedError } from "../../lib/session";
 import type { ProtectedScreenProps } from "../../navigation/types";
 
 function confidenceColor(confidence: Confidence): string {
-  if (confidence === "HIGH") return "#16a34a";
-  if (confidence === "MED") return "#ca8a04";
+  if (confidence === "HIGH") return colors.success;
+  if (confidence === "MED") return colors.warning;
   return colors.muted;
 }
 
@@ -186,9 +186,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   positiveText: {
-    color: "#16a34a",
+    color: colors.success,
   },
   negativeText: {
-    color: "#dc2626",
+    color: colors.danger,
   },
 });

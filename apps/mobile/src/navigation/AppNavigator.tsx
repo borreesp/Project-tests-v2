@@ -134,7 +134,7 @@ export function AppNavigator() {
         </RootStack.Navigator>
       ) : (
         <View style={{ alignItems: "center", flex: 1, gap: 12, justifyContent: "center" }}>
-          <Text style={{ color: "#dc2626" }}>Rol no soportado</Text>
+          <Text style={{ color: colors.danger }}>Rol no soportado</Text>
         </View>
       )}
     </NavigationContainer>

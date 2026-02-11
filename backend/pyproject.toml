@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "backend"
+version = "0.1.0"
+description = "Hexagonal FastAPI backend"
+authors = ["Project Tests <dev@example.com>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "*"
+uvicorn = { extras = ["standard"], version = "*" }
+pydantic = "*"
+pydantic-settings = "*"
+sqlalchemy = "*"
+asyncpg = "*"
+alembic = "*"
+python-jose = { extras = ["cryptography"], version = "*" }
+passlib = { extras = ["bcrypt"], version = "*" }
+httpx = "*"
+pytest = "*"
+pytest-asyncio = "*"
+ruff = "*"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"

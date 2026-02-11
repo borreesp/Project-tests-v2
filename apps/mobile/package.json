@@ -1,0 +1,32 @@
+﻿{
+  "name": "@apps/mobile",
+  "private": true,
+  "version": "0.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "dev": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "echo \"No lint for apps/mobile\"",
+    "test": "echo \"No tests for apps/mobile\"",
+    "build": "echo \"Expo build handled externally\""
+  },
+  "dependencies": {
+    "@packages/sdk": "workspace:*",
+    "@packages/types": "workspace:*",
+    "@packages/ui-tokens": "workspace:*",
+    "@react-navigation/bottom-tabs": "latest",
+    "@react-navigation/native": "latest",
+    "expo": "~54.0.0",
+    "expo-status-bar": "latest",
+    "react": "latest",
+    "react-native": "latest",
+    "react-native-safe-area-context": "latest",
+    "react-native-screens": "latest"
+  },
+  "devDependencies": {
+    "@types/react": "latest",
+    "typescript": "latest"
+  }
+}

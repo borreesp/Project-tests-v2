@@ -50,7 +50,22 @@ function Get-HttpStatusCode {
     return [int]$response.StatusCode
   }
   catch {
-    $response = $_.Exception.Response
+    $response = $null
+
+    $exception = $_.Exception
+    if ($null -ne $exception) {
+      $responseProperty = $exception.PSObject.Properties["Response"]
+      if ($null -ne $responseProperty) {
+        $response = $responseProperty.Value
+      }
+      elseif ($null -ne $exception.InnerException) {
+        $innerResponseProperty = $exception.InnerException.PSObject.Properties["Response"]
+        if ($null -ne $innerResponseProperty) {
+          $response = $innerResponseProperty.Value
+        }
+      }
+    }
+
     if ($null -ne $response -and $null -ne $response.StatusCode) {
       try {
         return [int]$response.StatusCode

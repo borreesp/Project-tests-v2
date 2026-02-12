@@ -48,3 +48,9 @@ Desktop.ini
 
 node_modules/
 **/node_modules/
+
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd

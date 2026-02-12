@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "test": "playwright test",
+    "test:ci": "vitest run",
     "test:smoke": "playwright test tests/smoke-routes.spec.ts"
   },
   "dependencies": {

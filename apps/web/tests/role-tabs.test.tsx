@@ -1,13 +1,24 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
-import { RoleTabs } from '@/components/role-tabs';
+import { RoleTabs } from "@/components/role-tabs";
 
-describe('RoleTabs', () => {
-  it('renders role labels for coach and athlete', () => {
-    render(<RoleTabs role="COACH" />);
+let mockPathname = "/";
 
-    expect(screen.getByText('Coach')).toBeInTheDocument();
-    expect(screen.getByText('Atleta')).toBeInTheDocument();
+vi.mock("next/navigation", () => ({
+  usePathname: () => mockPathname,
+}));
+
+describe("RoleTabs", () => {
+  it("renders tabs based on active route role", () => {
+    mockPathname = "/coach/workouts";
+    const { rerender } = render(<RoleTabs />);
+    expect(screen.getByText("Coach")).toBeInTheDocument();
+    expect(screen.queryByText("Athlete")).not.toBeInTheDocument();
+
+    mockPathname = "/athlete/dashboard";
+    rerender(<RoleTabs />);
+    expect(screen.getByText("Athlete")).toBeInTheDocument();
+    expect(screen.queryByText("Coach")).not.toBeInTheDocument();
   });
 });

@@ -16,7 +16,13 @@ export function useRequireAuth(allowedRoles?: AppRole[]): UseRequireAuthResult {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<MeDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const normalizedAllowedRoles = useMemo(() => (allowedRoles ? [...allowedRoles] : null), [allowedRoles]);
+  const allowedRolesKey = allowedRoles?.join("|") ?? "";
+  const normalizedAllowedRoles = useMemo(() => {
+    if (!allowedRolesKey) {
+      return null;
+    }
+    return allowedRolesKey.split("|") as AppRole[];
+  }, [allowedRolesKey]);
 
   useEffect(() => {
     let active = true;

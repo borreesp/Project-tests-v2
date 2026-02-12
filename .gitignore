@@ -45,3 +45,6 @@ Desktop.ini
 .idea/
 *.sublime-project
 *.sublime-workspace
+
+node_modules/
+**/node_modules/

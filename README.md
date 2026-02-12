@@ -89,3 +89,24 @@ pnpm dev
 
 Esto levanta apps del monorepo por Turbo (`web` y `mobile`), pero el backend se arranca aparte con Poetry.
 
+
+
+## Testing backend (pytest + integración con Postgres/Alembic)
+
+Desde la raíz del repositorio:
+
+```powershell
+make test-backend-unit
+```
+
+Para integración (levanta DB efímera en `:5433`, aplica migraciones y ejecuta tests):
+
+```powershell
+make test-backend-integration
+```
+
+Suite completa backend:
+
+```powershell
+make test-backend
+```

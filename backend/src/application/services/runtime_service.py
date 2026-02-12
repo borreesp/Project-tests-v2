@@ -1602,7 +1602,7 @@ class RuntimeService:
                 continue
             result = self._result_by_attempt(attempt.id)
             workout = self.workouts.get(attempt.workout_definition_id)
-            if result is None or workout is None:
+            if result is None or workout is None or not workout.is_test:
                 continue
             validated_records.append((attempt, result, workout))
 

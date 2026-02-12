@@ -77,10 +77,10 @@ try {
 
   if ($hasUncommittedChanges) {
     Write-Log "Detected local uncommitted changes; using HEAD + working tree diff."
-    $changedFiles = @(
+    $changedFiles = @(@(
       (& git diff --name-only HEAD | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
       $untracked
-    ) | Sort-Object -Unique
+    ) | Sort-Object -Unique)
   }
   else {
     $changedFiles = @(& git diff --name-only $diffRange | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
@@ -129,7 +129,7 @@ try {
     }
   }
 
-  $newDocs = $newDocs | Sort-Object -Unique
+  $newDocs = @($newDocs | Sort-Object -Unique)
 
   if ($newDocs.Count -eq 0) {
     Fail "Code changes require a NEW file in docs/changes/YYYY-MM-DD_short_title.md. Example: docs/changes/2026-02-12_fix_runtime_validation.md"

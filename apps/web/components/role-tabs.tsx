@@ -22,7 +22,8 @@ const tabsByRole: Record<Role, TabItem[]> = {
   admin: [{ href: "/admin", label: "Admin" }],
 };
 
-function resolveRole(pathname: string): Role {
+function resolveRole(pathname: string | null): Role {
+  if (!pathname) return "guest";
   if (pathname.startsWith("/athlete")) return "athlete";
   if (pathname.startsWith("/coach")) return "coach";
   if (pathname.startsWith("/admin")) return "admin";

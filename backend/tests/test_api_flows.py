@@ -1,6 +1,8 @@
 from fastapi.testclient import TestClient
+from jose import jwt
 
 from src.application.services.runtime_service import get_runtime_service
+from src.infrastructure.config.settings import get_settings
 
 
 def _auth_headers(token: str) -> dict[str, str]:
@@ -72,6 +74,21 @@ def test_auth_login_refresh_logout_me(client: TestClient) -> None:
     )
     assert logout_response.status_code == 200
     assert logout_response.json() == {"status": "ok"}
+
+
+def test_me_returns_401_with_expired_access_token(client: TestClient) -> None:
+    service = get_runtime_service()
+    settings = get_settings()
+    athlete_user = next(user for user in service.users.values() if user.email == "athlete@local.com")
+    expired_token = jwt.encode(
+        {"sub": athlete_user.id, "exp": 1},
+        settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm,
+    )
+
+    me_response = client.get("/api/v1/me", headers=_auth_headers(expired_token))
+    assert me_response.status_code == 401
+    assert me_response.json()["detail"] == "Invalid token"
 
 
 def test_invite_flow(client: TestClient) -> None:

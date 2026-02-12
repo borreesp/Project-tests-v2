@@ -50,7 +50,22 @@ function Get-HttpStatusCode {
     return [int]$response.StatusCode
   }
   catch {
-    $response = $_.Exception.Response
+    $response = $null
+
+    $exception = $_.Exception
+    if ($null -ne $exception) {
+      $responseProperty = $exception.PSObject.Properties["Response"]
+      if ($null -ne $responseProperty) {
+        $response = $responseProperty.Value
+      }
+      elseif ($null -ne $exception.InnerException) {
+        $innerResponseProperty = $exception.InnerException.PSObject.Properties["Response"]
+        if ($null -ne $innerResponseProperty) {
+          $response = $innerResponseProperty.Value
+        }
+      }
+    }
+
     if ($null -ne $response -and $null -ne $response.StatusCode) {
       try {
         return [int]$response.StatusCode
@@ -315,19 +330,35 @@ function Run-BackendTests {
   param([string]$Service)
   Write-Log "Running backend tests in service '$Service'."
 
-  Invoke-CommandWithResult docker @("compose", "exec", "-T", $Service, "pytest") | Out-Null
-  if ($LASTEXITCODE -eq 0) {
+  $backendTestSuites = @(
+    @("tests/test_health.py", "-q"),
+    @("tests/test_api_flows.py", "-q")
+  )
+
+  if (Test-ServiceCommandExists -Service $Service -CommandName "pytest") {
+    foreach ($suite in $backendTestSuites) {
+      $suitePath = $suite[0]
+      Write-Log "Running backend suite: $suitePath"
+      $pytestArgs = @("compose", "exec", "-T", $Service, "pytest") + $suite
+      Invoke-CommandWithResult -FilePath "docker" -Arguments $pytestArgs | Out-Null
+      if ($LASTEXITCODE -ne 0) {
+        Fail "Backend pytest suite failed ($suitePath). Fix failing tests before merging."
+      }
+    }
     return
   }
 
-  Invoke-CommandWithResult docker @("compose", "exec", "-T", $Service, "sh", "-lc", "command -v pytest >/dev/null 2>&1") | Out-Null
-  if ($LASTEXITCODE -eq 0) {
-    Fail "Backend pytest command failed. Fix failing tests before merging."
-  }
-
-  Write-WarnLog "pytest not found in container '$Service'. Trying fallback command: docker compose exec -T $Service poetry run pytest"
-  Invoke-CommandWithResult docker @("compose", "exec", "-T", $Service, "poetry", "run", "pytest") | Out-Null
-  if ($LASTEXITCODE -eq 0) {
+  if (Test-ServiceCommandExists -Service $Service -CommandName "poetry") {
+    Write-WarnLog "pytest not found in container '$Service'. Falling back to poetry run pytest."
+    foreach ($suite in $backendTestSuites) {
+      $suitePath = $suite[0]
+      Write-Log "Running backend suite via poetry: $suitePath"
+      $poetryPytestArgs = @("compose", "exec", "-T", $Service, "poetry", "run", "pytest") + $suite
+      Invoke-CommandWithResult -FilePath "docker" -Arguments $poetryPytestArgs | Out-Null
+      if ($LASTEXITCODE -ne 0) {
+        Fail "Backend poetry pytest suite failed ($suitePath). Fix failing tests before merging."
+      }
+    }
     return
   }
 

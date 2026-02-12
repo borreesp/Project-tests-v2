@@ -511,7 +511,11 @@ class RuntimeService:
         return membership
 
     def decode_access_token(self, token: str) -> UserRecord:
-        payload = self._jwt.decode(token)
+        try:
+            payload = self._jwt.decode(token)
+        except ValueError as exc:
+            raise UnauthorizedError("Invalid token") from exc
+
         user_id = payload.get("sub")
         if not isinstance(user_id, str):
             raise UnauthorizedError("Invalid token payload")

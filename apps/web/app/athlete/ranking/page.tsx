@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import type { LeaderboardDTO, LeaderboardPeriod, LeaderboardScope, ScaleCode, WorkoutDefinitionSummaryDTO } from "@packages/types";
 
-import { ErrorState, LoadingState } from "@/components/state-view";
+import { EmptyState, ErrorState, LoadingState } from "@/components/state-view";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -98,19 +99,15 @@ export default function AthleteRankingPage() {
   }
 
   if (workouts.length === 0) {
-    return (
-      <Card>
-        <CardContent className="pt-6 text-sm text-muted-foreground">No hay workouts de test publicados aun.</CardContent>
-      </Card>
-    );
+    return <EmptyState title="Sin tests publicados" message="No hay workouts de test publicados aún." />;
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Ranking</CardTitle>
-          <CardDescription>Workout: {selectedWorkoutLabel}</CardDescription>
+          <CardTitle className="flex items-center gap-2">Ranking <Badge variant="secondary">Live</Badge></CardTitle>
+          <CardDescription>Workout seleccionado: {selectedWorkoutLabel}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-2">
@@ -149,9 +146,9 @@ export default function AthleteRankingPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Tabla</CardTitle>
+          <CardTitle>Tabla de posiciones</CardTitle>
           <CardDescription>
-            {loadingRank ? "Actualizando..." : `Posicion actual: ${leaderboard?.myRank ?? "N/A"}`}
+            {loadingRank ? "Actualizando ranking..." : `Posición actual: ${leaderboard?.myRank ?? "N/A"}`}
           </CardDescription>
         </CardHeader>
         <CardContent>

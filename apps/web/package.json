@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "echo \"No tests for apps/web\""
+    "test": "playwright test",
+    "test:smoke": "playwright test tests/smoke-routes.spec.ts"
   },
   "dependencies": {
     "@packages/sdk": "workspace:*",
@@ -29,6 +30,7 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
-    "typescript": "latest"
+    "typescript": "latest",
+    "@playwright/test": "^1.56.1"
   }
 }

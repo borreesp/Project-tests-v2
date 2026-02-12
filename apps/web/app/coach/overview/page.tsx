@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 
 import { ErrorState, LoadingState } from "@/components/state-view";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { webApi } from "@/lib/sdk";
 
 type CoachOverviewDTO = {
@@ -52,30 +53,36 @@ export default function CoachOverviewPage() {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Gym</CardTitle>
+          <CardDescription>ID operativo activo</CardDescription>
         </CardHeader>
-        <CardContent className="text-sm">{overview.gymId}</CardContent>
+        <CardContent className="text-sm">
+          <Badge variant="outline">{overview.gymId}</Badge>
+        </CardContent>
       </Card>
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Athletes</CardTitle>
+          <CardDescription>Total de atletas asignados</CardDescription>
         </CardHeader>
-        <CardContent className="text-2xl font-semibold">{overview.athletesCount}</CardContent>
+        <CardContent className="text-3xl font-semibold">{overview.athletesCount}</CardContent>
       </Card>
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Pending validations</CardTitle>
+          <CardDescription>Tests por revisar</CardDescription>
         </CardHeader>
-        <CardContent className="text-2xl font-semibold">{overview.pendingSubmissions}</CardContent>
+        <CardContent className="text-3xl font-semibold text-amber-400">{overview.pendingSubmissions}</CardContent>
       </Card>
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Validated today</CardTitle>
+          <CardDescription>Progreso diario del coach</CardDescription>
         </CardHeader>
-        <CardContent className="text-2xl font-semibold">{overview.validatedToday}</CardContent>
+        <CardContent className="text-3xl font-semibold text-emerald-400">{overview.validatedToday}</CardContent>
       </Card>
     </div>
   );

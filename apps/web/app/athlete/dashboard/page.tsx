@@ -65,16 +65,16 @@ export default function AthleteDashboardPage() {
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid gap-6 lg:grid-cols-2">
       <Card>
         <CardHeader>
-          <CardTitle>Pulse</CardTitle>
+          <CardTitle className="flex items-center gap-2">Pulse <Badge variant="secondary">Score</Badge></CardTitle>
           <CardDescription>
-            Valor {data.pulse.value.toFixed(2)} / 100 <Badge variant="secondary">{data.pulse.confidence}</Badge>
+            Valor {data.pulse.value.toFixed(2)} / 100 · Confianza <Badge variant="outline">{data.pulse.confidence}</Badge>
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-72">
+          <div className="h-72 rounded-lg border border-border/70 bg-background/40 p-2">
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={radarData}>
                 <PolarGrid />
@@ -90,12 +90,12 @@ export default function AthleteDashboardPage() {
         <CardHeader>
           <CardTitle>Capacidades</CardTitle>
           <CardDescription>
-            Nivel {data.level} - {data.levelBand}
+            Nivel {data.level} · Banda {data.levelBand}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {capacities.map((item) => (
-            <div key={item.type} className="space-y-1">
+            <div key={item.type} className="space-y-2 rounded-lg border border-border/70 bg-background/30 p-3">
               <div className="flex items-center justify-between text-sm">
                 <span>{item.type.replaceAll("_", " ")}</span>
                 <span>{item.value.toFixed(2)}</span>
@@ -112,11 +112,11 @@ export default function AthleteDashboardPage() {
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
           <div className="rounded-lg border p-3">
-            <p className="text-muted-foreground">Ultimos 7d</p>
+            <p className="text-muted-foreground">Últimos 7d</p>
             <p className="text-2xl font-semibold">{data.counts.tests7d}</p>
           </div>
           <div className="rounded-lg border p-3">
-            <p className="text-muted-foreground">Ultimos 30d</p>
+            <p className="text-muted-foreground">Últimos 30d</p>
             <p className="text-2xl font-semibold">{data.counts.tests30d}</p>
           </div>
         </CardContent>
@@ -125,6 +125,7 @@ export default function AthleteDashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>Tendencias 30d</CardTitle>
+          <CardDescription>Variación por capacidad en los últimos 30 días.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           {data.trends30d.map((trend) => (

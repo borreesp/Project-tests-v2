@@ -35,8 +35,6 @@ jobs:
       - name: Backend integration tests
         run: poetry run pytest tests/test_api_flows.py -q
 
-  web:
-    name: Web lint + tests
   verify:
     runs-on: ubuntu-latest
     steps:

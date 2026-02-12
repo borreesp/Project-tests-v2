@@ -44,15 +44,22 @@ function Get-RelativePath {
   )
 
   $baseFullPath = [System.IO.Path]::GetFullPath($BasePath)
-  if (-not $baseFullPath.EndsWith([System.IO.Path]::DirectorySeparatorChar)) {
-    $baseFullPath += [System.IO.Path]::DirectorySeparatorChar
-  }
-
   $targetFullPath = [System.IO.Path]::GetFullPath($TargetPath)
-  $baseUri = [System.Uri]$baseFullPath
-  $targetUri = [System.Uri]$targetFullPath
-  $relative = $baseUri.MakeRelativeUri($targetUri).ToString()
-  return [System.Uri]::UnescapeDataString($relative)
+
+  Push-Location $baseFullPath
+  try {
+    $relative = (Resolve-Path -LiteralPath $targetFullPath -Relative)
+    if ($relative.StartsWith(".\")) {
+      return $relative.Substring(2)
+    }
+    if ($relative.StartsWith("./")) {
+      return $relative.Substring(2)
+    }
+    return $relative
+  }
+  finally {
+    Pop-Location
+  }
 }
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path

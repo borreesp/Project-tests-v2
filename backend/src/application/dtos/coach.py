@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from pydantic import Field
 
 from src.application.dtos.athlete import AttemptDTO
@@ -9,8 +7,6 @@ from src.adapters.outbound.persistence.models.enums import (
     BlockType,
     CapacityType,
     LoadRule,
-    MovementPattern,
-    MovementUnit,
     ScaleCode,
     ScoreType,
     WorkoutType,

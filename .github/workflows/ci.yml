@@ -1,11 +1,42 @@
-﻿name: CI
+name: CI
 
 on:
   push:
   pull_request:
 
 jobs:
-  ci:
+  backend:
+    name: Backend lint + tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Install backend dependencies
+        run: poetry install --no-interaction --no-root
+
+      - name: Lint backend
+        run: poetry run ruff check src tests
+
+      - name: Backend unit tests
+        run: poetry run pytest tests/test_health.py -q
+
+      - name: Backend integration tests
+        run: poetry run pytest tests/test_api_flows.py -q
+
+  web:
+    name: Web lint + tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,14 +53,14 @@ jobs:
           node-version: 20
           cache: pnpm
 
-      - name: Install
+      - name: Install dependencies
         run: pnpm install
 
-      - name: Lint
+      - name: Lint workspace
         run: pnpm lint
 
-      - name: Test
-        run: pnpm test
+      - name: Web tests
+        run: pnpm --filter @apps/web test
 
       - name: Build web
         run: pnpm --filter @apps/web build

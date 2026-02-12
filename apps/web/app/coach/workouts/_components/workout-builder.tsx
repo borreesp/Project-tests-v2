@@ -252,23 +252,6 @@ function pickTemplateMovement(mapByName: Map<string, MovementDTO>, fallbackList:
   return mapByName.get("db push press") ?? fallbackList[0] ?? null;
 }
 
-function durationSeconds(blocks: BuilderBlock[]): number {
-  return blocks.reduce((sum, block) => sum + (block.timeSeconds ?? block.capSeconds ?? 0) * block.repeatInt, 0);
-}
-
-function isPressEmom(blocks: BuilderBlock[]): boolean {
-  if (blocks.length !== 20) return false;
-  const ordered = [...blocks].sort((a, b) => a.ord - b.ord);
-  return ordered.every((block, index) => {
-    const shouldWork = index % 2 === 0;
-    if (block.blockType !== (shouldWork ? "WORK" : "REST")) return false;
-    if (block.timeSeconds !== 60 || block.repeatInt !== 1) return false;
-    if (shouldWork && block.movements.length < 1) return false;
-    if (!shouldWork && block.movements.length > 0) return false;
-    return true;
-  });
-}
-
 export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1148,7 +1131,7 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
                 </Button>
                 {type === "EMOM" ? (
                   <Button size="sm" variant="outline" onClick={generateEmom10}>
-                    Generar EMOM 10' (WORK/REST)
+                    Generar EMOM 10&apos; (WORK/REST)
                   </Button>
                 ) : null}
               </div>

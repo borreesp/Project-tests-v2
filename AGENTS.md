@@ -98,3 +98,13 @@ Que dentro de 2 meses se pueda:
 - Reconstruir decisiones arquitectónicas
 
 Esta regla es obligatoria y prioritaria.
+
+REGLA DE PRE-FLIGHT (OBLIGATORIA)
+- No crear PR ni push final si no has ejecutado `preflight.ps1` y ha terminado en PASS.
+
+CIERRE OBLIGATORIO
+Al finalizar cada intervención, reportar explícitamente:
+- Estado preflight: PASS o FAIL.
+- Comando(s) ejecutado(s) para validación.
+- Qué checks se ejecutaron.
+- Qué checks se omitieron (si aplica) y por qué.

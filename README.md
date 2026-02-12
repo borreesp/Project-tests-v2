@@ -11,6 +11,31 @@ Monorepo con pnpm workspaces + Turborepo.
 - `packages/ui-tokens` - design tokens
 - `backend` - estructura base backend
 
+## Verification
+
+Para ejecutar verificación repo-wide (backend + web + enforcement de documentación):
+
+```bash
+bash scripts/verify.sh
+```
+
+En Windows PowerShell (sin WSL bash):
+
+```powershell
+.\scripts\verify.ps1
+```
+
+Si la política de ejecución bloquea scripts:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify.ps1
+```
+
+Opcional:
+- `KEEP_DOCKER_UP=1 bash scripts/verify.sh` para no bajar contenedores al finalizar.
+- `bash scripts/check-docs-changes.sh` para validar solo la regla de `docs/changes`.
+- `.\scripts\check-docs-changes.ps1` para validar solo la regla de `docs/changes` desde PowerShell.
+
 ## Levantar entorno local (Windows PowerShell)
 
 ### Requisitos

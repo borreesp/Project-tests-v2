@@ -200,6 +200,33 @@ def test_create_test_workout_requires_score_type_and_capacity_weights(client: Te
     assert create_response.status_code == 422
 
 
+def test_create_attempt_rejects_invalid_payload(client: TestClient) -> None:
+    coach_login = _login(client, "coach@local.com", "Coach123!")
+    coach_headers = _auth_headers(coach_login["accessToken"])
+
+    movement_id = client.get("/api/v1/movements").json()[0]["id"]
+    create_workout_response = client.post(
+        "/api/v1/coach/workouts",
+        json=_build_workout_payload(movement_id),
+        headers=coach_headers,
+    )
+    assert create_workout_response.status_code == 200
+    workout_id = create_workout_response.json()["id"]
+
+    publish_response = client.post(f"/api/v1/coach/workouts/{workout_id}/publish", headers=coach_headers)
+    assert publish_response.status_code == 200
+
+    athlete_login = _login(client, "athlete@local.com", "Athlete123!")
+    athlete_headers = _auth_headers(athlete_login["accessToken"])
+
+    create_attempt_response = client.post(
+        f"/api/v1/athlete/workouts/{workout_id}/attempt",
+        json={},
+        headers=athlete_headers,
+    )
+    assert create_attempt_response.status_code == 422
+
+
 def test_create_workout_rejects_is_test_false(client: TestClient) -> None:
     coach_login = _login(client, "coach@local.com", "Coach123!")
     coach_headers = _auth_headers(coach_login["accessToken"])
@@ -210,6 +237,76 @@ def test_create_workout_rejects_is_test_false(client: TestClient) -> None:
 
     create_response = client.post("/api/v1/coach/workouts", json=payload, headers=coach_headers)
     assert create_response.status_code == 400
+
+
+def test_athlete_dashboard_and_rankings_schema_after_attempt_validation(client: TestClient) -> None:
+    coach_login = _login(client, "coach@local.com", "Coach123!")
+    coach_headers = _auth_headers(coach_login["accessToken"])
+
+    movement_id = client.get("/api/v1/movements").json()[0]["id"]
+    create_workout_response = client.post(
+        "/api/v1/coach/workouts",
+        json=_build_workout_payload(movement_id),
+        headers=coach_headers,
+    )
+    assert create_workout_response.status_code == 200
+    workout_id = create_workout_response.json()["id"]
+
+    publish_response = client.post(f"/api/v1/coach/workouts/{workout_id}/publish", headers=coach_headers)
+    assert publish_response.status_code == 200
+
+    athlete_login = _login(client, "athlete@local.com", "Athlete123!")
+    athlete_headers = _auth_headers(athlete_login["accessToken"])
+
+    create_attempt_response = client.post(
+        f"/api/v1/athlete/workouts/{workout_id}/attempt",
+        json={"scaleCode": "RX"},
+        headers=athlete_headers,
+    )
+    assert create_attempt_response.status_code == 200
+    attempt_id = create_attempt_response.json()["attemptId"]
+
+    submit_response = client.post(
+        f"/api/v1/athlete/attempts/{attempt_id}/submit-result",
+        json={
+            "primaryResult": {"type": "REPS", "repsTotal": 98},
+            "inputs": {"loadKgTotal": 1},
+        },
+        headers=athlete_headers,
+    )
+    assert submit_response.status_code == 200
+
+    validate_response = client.post(f"/api/v1/coach/attempts/{attempt_id}/validate", headers=coach_headers)
+    assert validate_response.status_code == 200
+
+    dashboard_response = client.get("/api/v1/athlete/dashboard", headers=athlete_headers)
+    assert dashboard_response.status_code == 200
+    dashboard = dashboard_response.json()
+    assert dashboard["athleteId"]
+    assert dashboard["level"] >= 1
+    assert dashboard["levelBand"] in {"BEGINNER", "ATHLETE", "PRO"}
+    assert len(dashboard["capacities"]) == 4
+    assert set(dashboard["counts"]) == {"tests7d", "tests30d"}
+
+    ranking_response = client.get(
+        "/api/v1/rankings",
+        params={
+            "workoutId": workout_id,
+            "scope": "GYM",
+            "period": "ALL_TIME",
+            "scaleCode": "RX",
+        },
+        headers=athlete_headers,
+    )
+    assert ranking_response.status_code == 200
+    ranking = ranking_response.json()
+    assert ranking["workoutId"] == workout_id
+    assert ranking["scope"] == "GYM"
+    assert ranking["period"] == "ALL_TIME"
+    assert ranking["scaleCode"] == "RX"
+    assert isinstance(ranking["entries"], list)
+    assert ranking["myRank"] == 1
+    assert ranking["entries"][0]["athleteId"] == dashboard["athleteId"]
 
 
 def test_ideal_scores_permissions_and_upserts(client: TestClient) -> None:

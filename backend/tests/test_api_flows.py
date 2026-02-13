@@ -164,11 +164,17 @@ def test_create_workout_create_attempt_submit_validate_dashboard(client: TestCli
         headers=athlete_headers,
     )
     assert submit_response.status_code == 200
-    assert submit_response.json()["status"] == "SUBMITTED"
+    submit_payload = submit_response.json()
+    assert submit_payload["status"] == "SUBMITTED"
+    assert submit_payload["impactBreakdown"]["total"]["strength"] == 0.4
+    assert len(submit_payload["impactBreakdown"]["byMovement"]) == 1
+    assert len(submit_payload["impactBreakdown"]["byBlock"]) == 1
 
     validate_response = client.post(f"/api/v1/coach/attempts/{attempt_id}/validate", headers=coach_headers)
     assert validate_response.status_code == 200
-    assert validate_response.json()["status"] == "VALIDATED"
+    validate_payload = validate_response.json()
+    assert validate_payload["status"] == "VALIDATED"
+    assert validate_payload["impactBreakdown"]["total"]["strength"] == 0.4
 
     dashboard_response = client.get("/api/v1/athlete/dashboard", headers=athlete_headers)
     assert dashboard_response.status_code == 200

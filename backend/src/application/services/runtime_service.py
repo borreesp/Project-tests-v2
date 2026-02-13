@@ -730,12 +730,13 @@ class RuntimeService:
 
             existing_result = self._result_by_attempt(attempt.id)
             if existing_result is None:
+                impact_breakdown = self._build_impact_breakdown(workout)
                 result = WorkoutResultRecord(
                     id=str(uuid4()),
                     attempt_id=attempt.id,
                     primary_result_json=payload.primary_result.model_dump(mode="json", by_alias=True),
                     inputs_json=payload.inputs,
-                    derived_metrics_json={},
+                    derived_metrics_json={"impactBreakdown": impact_breakdown},
                     score_base=score_base,
                     score_norm=score_norm,
                     data_quality=DataQuality.OK,
@@ -745,8 +746,10 @@ class RuntimeService:
                 )
                 self.results[result.id] = result
             else:
+                impact_breakdown = self._build_impact_breakdown(workout)
                 existing_result.primary_result_json = payload.primary_result.model_dump(mode="json", by_alias=True)
                 existing_result.inputs_json = payload.inputs
+                existing_result.derived_metrics_json = {"impactBreakdown": impact_breakdown}
                 existing_result.score_base = score_base
                 existing_result.score_norm = score_norm
                 existing_result.reject_reason = None
@@ -1689,6 +1692,80 @@ class RuntimeService:
             CapacityType.WORK_CAPACITY: 0.25,
         }
 
+    def _build_impact_breakdown(self, workout: WorkoutDefinitionRecord) -> dict[str, Any]:
+        movement_split: list[dict[str, Any]] = []
+        block_aggregate: dict[str, dict[str, Any]] = {}
+        for block in sorted(workout.blocks, key=lambda item: item.ord):
+            for movement in sorted(block.movements, key=lambda item: item.ord):
+                catalog_movement = self.movements.get(movement.movement_id)
+                if catalog_movement is None:
+                    continue
+
+                impact_by_capacity = transform_movements_to_capacity_impact(
+                    [
+                        MovementImpactInput(
+                            movement_id=movement.movement_id,
+                            pattern=catalog_movement.pattern,
+                            reps=movement.reps,
+                            meters=movement.meters,
+                            seconds=movement.seconds,
+                            calories=movement.calories,
+                        )
+                    ]
+                )
+                impact_payload = self._capacity_impact_payload(impact_by_capacity)
+                movement_split.append(
+                    {
+                        "movementId": movement.movement_id,
+                        "blockId": block.id,
+                        "blockOrd": block.ord,
+                        "movementOrd": movement.ord,
+                        "impact": impact_payload,
+                    }
+                )
+
+                block_entry = block_aggregate.setdefault(
+                    block.id,
+                    {
+                        "blockId": block.id,
+                        "blockOrd": block.ord,
+                        "raw": {capacity: 0.0 for capacity in CapacityType},
+                    },
+                )
+                for capacity in CapacityType:
+                    block_entry["raw"][capacity] += impact_by_capacity[capacity]
+
+        total_impact = self._capacity_impact_payload(self._capacity_weights(workout))
+        by_block: list[dict[str, Any]] = []
+        for block_entry in sorted(block_aggregate.values(), key=lambda item: item["blockOrd"]):
+            raw = block_entry["raw"]
+            raw_total = sum(raw.values())
+            if raw_total > 0:
+                normalized = {capacity: raw[capacity] / raw_total for capacity in CapacityType}
+            else:
+                normalized = {capacity: 1.0 / len(CapacityType) for capacity in CapacityType}
+            by_block.append(
+                {
+                    "blockId": block_entry["blockId"],
+                    "blockOrd": block_entry["blockOrd"],
+                    "impact": self._capacity_impact_payload(normalized),
+                }
+            )
+
+        return {
+            "total": total_impact,
+            "byMovement": movement_split,
+            "byBlock": by_block,
+        }
+
+    def _capacity_impact_payload(self, impact: dict[CapacityType, float]) -> dict[str, float]:
+        return {
+            "strength": round(float(impact.get(CapacityType.STRENGTH, 0.0)), 6),
+            "muscularEndurance": round(float(impact.get(CapacityType.MUSCULAR_ENDURANCE, 0.0)), 6),
+            "relativeStrength": round(float(impact.get(CapacityType.RELATIVE_STRENGTH, 0.0)), 6),
+            "workCapacity": round(float(impact.get(CapacityType.WORK_CAPACITY, 0.0)), 6),
+        }
+
     def _confidence_from_attempts(self, attempts_last_60d: int) -> Confidence:
         if attempts_last_60d < 2:
             return Confidence.LOW
@@ -2054,6 +2131,9 @@ class RuntimeService:
 
     def _attempt_to_dto(self, attempt: WorkoutAttemptRecord) -> AttemptDTO:
         result = self._result_by_attempt(attempt.id)
+        impact_breakdown = None
+        if result is not None:
+            impact_breakdown = result.derived_metrics_json.get("impactBreakdown")
         return AttemptDTO(
             id=attempt.id,
             athleteId=attempt.athlete_id,
@@ -2062,6 +2142,7 @@ class RuntimeService:
             scaleCode=attempt.scale_code,
             status=attempt.status,
             scoreNorm=round(result.score_norm, 2) if result is not None else None,
+            impactBreakdown=impact_breakdown,
         )
 
     def _workout_mutation_to_dto(self, workout: WorkoutDefinitionRecord) -> WorkoutMutationResponseDTO:

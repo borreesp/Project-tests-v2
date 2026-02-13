@@ -93,7 +93,12 @@ from src.application.dtos.public import (
     WorkoutScaleDTO,
 )
 from src.application.dtos.ranking import LeaderboardDTO, LeaderboardEntryDTO, RecomputeRankingsResponseDTO
-from src.application.services.movement_impact_transformer import MovementImpactInput, transform_movements_to_capacity_impact
+from src.application.services.movement_impact_transformer import (
+    MovementImpactInput,
+    compute_raw_movement_impact,
+    normalize_capacity_impact,
+    transform_movements_to_capacity_impact,
+)
 from src.infrastructure.config.settings import get_settings
 
 
@@ -1693,34 +1698,33 @@ class RuntimeService:
         }
 
     def _build_impact_breakdown(self, workout: WorkoutDefinitionRecord) -> dict[str, Any]:
-        movement_split: list[dict[str, Any]] = []
+        movement_data: list[dict[str, Any]] = []
         block_aggregate: dict[str, dict[str, Any]] = {}
+        
         for block in sorted(workout.blocks, key=lambda item: item.ord):
             for movement in sorted(block.movements, key=lambda item: item.ord):
                 catalog_movement = self.movements.get(movement.movement_id)
                 if catalog_movement is None:
                     continue
 
-                impact_by_capacity = transform_movements_to_capacity_impact(
-                    [
-                        MovementImpactInput(
-                            movement_id=movement.movement_id,
-                            pattern=catalog_movement.pattern,
-                            reps=movement.reps,
-                            meters=movement.meters,
-                            seconds=movement.seconds,
-                            calories=movement.calories,
-                        )
-                    ]
+                raw_impact = compute_raw_movement_impact(
+                    MovementImpactInput(
+                        movement_id=movement.movement_id,
+                        pattern=catalog_movement.pattern,
+                        reps=movement.reps,
+                        meters=movement.meters,
+                        seconds=movement.seconds,
+                        calories=movement.calories,
+                    )
                 )
-                impact_payload = self._capacity_impact_payload(impact_by_capacity)
-                movement_split.append(
+                
+                movement_data.append(
                     {
                         "movementId": movement.movement_id,
                         "blockId": block.id,
                         "blockOrd": block.ord,
                         "movementOrd": movement.ord,
-                        "impact": impact_payload,
+                        "raw": raw_impact,
                     }
                 )
 
@@ -1733,17 +1737,26 @@ class RuntimeService:
                     },
                 )
                 for capacity in CapacityType:
-                    block_entry["raw"][capacity] += impact_by_capacity[capacity]
+                    block_entry["raw"][capacity] += raw_impact[capacity]
 
         total_impact = self._capacity_impact_payload(self._capacity_weights(workout))
+        
+        by_movement: list[dict[str, Any]] = []
+        for movement_entry in movement_data:
+            normalized = normalize_capacity_impact(movement_entry["raw"])
+            by_movement.append(
+                {
+                    "movementId": movement_entry["movementId"],
+                    "blockId": movement_entry["blockId"],
+                    "blockOrd": movement_entry["blockOrd"],
+                    "movementOrd": movement_entry["movementOrd"],
+                    "impact": self._capacity_impact_payload(normalized),
+                }
+            )
+        
         by_block: list[dict[str, Any]] = []
         for block_entry in sorted(block_aggregate.values(), key=lambda item: item["blockOrd"]):
-            raw = block_entry["raw"]
-            raw_total = sum(raw.values())
-            if raw_total > 0:
-                normalized = {capacity: raw[capacity] / raw_total for capacity in CapacityType}
-            else:
-                normalized = {capacity: 1.0 / len(CapacityType) for capacity in CapacityType}
+            normalized = normalize_capacity_impact(block_entry["raw"])
             by_block.append(
                 {
                     "blockId": block_entry["blockId"],
@@ -1754,7 +1767,7 @@ class RuntimeService:
 
         return {
             "total": total_impact,
-            "byMovement": movement_split,
+            "byMovement": by_movement,
             "byBlock": by_block,
         }
 

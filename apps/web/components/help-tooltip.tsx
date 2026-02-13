@@ -31,7 +31,12 @@ export function HelpTooltip({ content, title = "Ayuda", side = "top", className 
   const panelPosition = side === "top" ? "bottom-full mb-2" : "top-full mt-2";
 
   return (
-    <span ref={containerRef} className={`relative inline-flex items-center ${className ?? ""}`}>
+    <span
+      ref={containerRef}
+      className={`relative inline-flex items-center ${className ?? ""}`}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
       <Button
         type="button"
         variant="ghost"
@@ -40,6 +45,7 @@ export function HelpTooltip({ content, title = "Ayuda", side = "top", className 
         aria-label={title}
         aria-expanded={open}
         aria-controls={contentId}
+        onFocus={() => setOpen(true)}
         onClick={() => setOpen((previous) => !previous)}
         onBlur={(event) => {
           if (!event.currentTarget.parentElement?.contains(event.relatedTarget as Node | null)) {

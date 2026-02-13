@@ -30,7 +30,7 @@ export type QuickStartBuilderState = {
   blocks: TemplateBlockDraft[];
 };
 
-const SCORE_TYPE_BY_WORKOUT_TYPE: Record<WorkoutType, ScoreType> = {
+export const SCORE_TYPE_BY_WORKOUT_TYPE: Record<WorkoutType, ScoreType> = {
   AMRAP: "REPS",
   EMOM: "REPS",
   FORTIME: "TIME",

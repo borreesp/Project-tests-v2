@@ -26,7 +26,12 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { HELP } from "@/content/help-text";
 import { webApi } from "@/lib/sdk";
-import { QUICK_START_TEMPLATE_STATE, resolveTemplateMovements, type QuickStartTemplate } from "./workout-template";
+import {
+  QUICK_START_TEMPLATE_STATE,
+  SCORE_TYPE_BY_WORKOUT_TYPE,
+  resolveTemplateMovements,
+  type QuickStartTemplate,
+} from "./workout-template";
 
 type BuilderMode = "create" | "edit";
 type BuilderStep = 1 | 2 | 3;
@@ -88,14 +93,6 @@ const CAPACITY_TYPES: CapacityType[] = ["STRENGTH", "MUSCULAR_ENDURANCE", "RELAT
 const SCORE_TYPES: ScoreType[] = ["REPS", "METERS", "TIME", "ROUNDS_METERS"];
 const WORKOUT_TYPES: WorkoutType[] = ["AMRAP", "EMOM", "FORTIME", "INTERVALS", "BLOCKS"];
 const PATTERNS: Array<MovementPattern | "ALL"> = ["ALL", "SQUAT", "HINGE", "PUSH", "PULL", "CARRY", "CORE", "LOCOMOTION", "OTHER"];
-
-const SCORE_TYPE_BY_WORKOUT_TYPE: Record<WorkoutType, ScoreType> = {
-  AMRAP: "REPS",
-  EMOM: "REPS",
-  FORTIME: "TIME",
-  INTERVALS: "REPS",
-  BLOCKS: "REPS",
-};
 
 const CAPACITY_LABELS: Record<CapacityType, string> = {
   STRENGTH: "Fuerza",

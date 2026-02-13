@@ -22,8 +22,9 @@ describe("quick start template mappings", () => {
 
       for (const block of state.blocks) {
         expect(block.repeatInt).toBeGreaterThan(0);
-        const ords = block.movements.map((_, index) => index + 1);
-        expect(new Set(ords).size).toBe(ords.length);
+        if (block.blockType === "WORK") {
+          expect(block.movements.length).toBeGreaterThan(0);
+        }
       }
 
       const resolution = resolveTemplateMovements(template as keyof typeof QUICK_START_TEMPLATE_STATE, [...MOVEMENTS]);

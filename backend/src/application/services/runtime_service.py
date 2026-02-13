@@ -93,6 +93,7 @@ from src.application.dtos.public import (
     WorkoutScaleDTO,
 )
 from src.application.dtos.ranking import LeaderboardDTO, LeaderboardEntryDTO, RecomputeRankingsResponseDTO
+from src.application.services.movement_impact_transformer import MovementImpactInput, transform_movements_to_capacity_impact
 from src.infrastructure.config.settings import get_settings
 
 
@@ -1649,6 +1650,26 @@ class RuntimeService:
     def _capacity_weights(self, workout: WorkoutDefinitionRecord) -> dict[CapacityType, float]:
         if workout.capacity_weights:
             return {item.capacity_type: float(item.weight) for item in workout.capacity_weights}
+
+        movement_inputs: list[MovementImpactInput] = []
+        for block in workout.blocks:
+            for movement in block.movements:
+                catalog_movement = self.movements.get(movement.movement_id)
+                if catalog_movement is None:
+                    continue
+                movement_inputs.append(
+                    MovementImpactInput(
+                        movement_id=movement.movement_id,
+                        pattern=catalog_movement.pattern,
+                        reps=movement.reps,
+                        meters=movement.meters,
+                        seconds=movement.seconds,
+                        calories=movement.calories,
+                    )
+                )
+
+        if movement_inputs:
+            return transform_movements_to_capacity_impact(movement_inputs)
 
         name = workout.title.lower()
         if "farmer" in name and "sled" in name:

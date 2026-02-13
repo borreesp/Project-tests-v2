@@ -36,7 +36,7 @@ export function RoleTabs() {
 
   return (
     <nav aria-label="Role tabs" className="w-full border-b border-border bg-card/80 px-4 py-3 backdrop-blur">
-      <ul className="mx-auto flex max-w-4xl flex-wrap gap-2">
+      <ul className="mx-auto flex w-full max-w-screen-2xl flex-wrap gap-2">
         {tabsByRole[role].map((tab) => {
           const isActive = pathname === tab.href;
           return (

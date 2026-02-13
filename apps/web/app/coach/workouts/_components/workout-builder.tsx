@@ -956,10 +956,10 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
         </CardHeader>
       </Card>
 
-      <div className="grid gap-4 xl:grid-cols-12">
-        <Card className="xl:col-span-3">
+      <div className="grid gap-4 lg:grid-cols-12">
+        <Card className="lg:col-span-4">
         <CardHeader>
-          <CardTitle>Movements Library</CardTitle>
+          <CardTitle>INPUT · Movements Library</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <Input placeholder="Buscar movement..." value={movementQuery} onChange={(event) => setMovementQuery(event.target.value)} />
@@ -991,9 +991,10 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
         </CardContent>
       </Card>
 
-      <Card className="xl:col-span-6">
+      <Card className="lg:col-span-4">
         <CardHeader>
-          <CardTitle>{step === 1 ? "Paso 1: Identidad" : step === 2 ? "Paso 2: Estructura" : "Paso 3: Impacto"}</CardTitle>
+          <CardTitle>TRANSFORM · Configuración y lógica de transformación</CardTitle>
+          <p className="text-sm text-muted-foreground">Ideal scores, pesos de capacidades, escalado y parámetros internos.</p>
         </CardHeader>
         <CardContent className="space-y-4">
           {step === 1 ? (
@@ -1275,11 +1276,21 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
           ) : null}
         </CardContent>
       </Card>
-      <Card className="xl:col-span-3">
+      <Card className="lg:col-span-4">
         <CardHeader>
-          <CardTitle>Validacion</CardTitle>
+          <CardTitle>OUTPUT · Validación y preview</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-2 rounded border border-primary/30 bg-primary/5 p-3">
+            <p className="text-sm font-semibold">Preview de capacidades (placeholder)</p>
+            <p className="text-sm text-muted-foreground">Aquí se mostrará el resultado final Input → Transform → Output con capacidades estimadas por atleta y por escala.</p>
+            <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+              <p>• STRENGTH: pendiente</p>
+              <p>• MUSCULAR_ENDURANCE: pendiente</p>
+              <p>• RELATIVE_STRENGTH: pendiente</p>
+              <p>• WORK_CAPACITY: pendiente</p>
+            </div>
+          </div>
           <div className="space-y-2 rounded border p-3">
             <p className="text-sm font-semibold">Errores accionables</p>
             {validationIssues.length === 0 ? (

@@ -12,7 +12,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en">
       <body suppressHydrationWarning>
         <div className="min-h-screen bg-background">
-          <main className="mx-auto w-full max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8 2xl:px-10">{children}</main>
+          <main className="mx-auto w-full max-w-[1800px] px-4 py-6 sm:px-8 lg:px-10 2xl:px-12">{children}</main>
         </div>
       </body>
     </html>

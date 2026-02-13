@@ -5,9 +5,11 @@ import type { AthleteDashboardDTO, CapacityType } from "@packages/types";
 import { PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer } from "recharts";
 
 import { ErrorState, LoadingState } from "@/components/state-view";
+import { HelpTooltip } from "@/components/help-tooltip";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { HELP } from "@/content/help-text";
 import { webApi } from "@/lib/sdk";
 
 const capacityOrder: CapacityType[] = ["STRENGTH", "MUSCULAR_ENDURANCE", "RELATIVE_STRENGTH", "WORK_CAPACITY"];
@@ -68,9 +70,9 @@ export default function AthleteDashboardPage() {
     <div className="grid gap-6 lg:grid-cols-2">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">Pulse <Badge variant="secondary">Score</Badge></CardTitle>
+          <CardTitle className="flex items-center gap-2">Pulse <Badge variant="secondary">Score</Badge><HelpTooltip content={HELP.athleteMetrics.pulseScore} title="Ayuda: Pulse score" /></CardTitle>
           <CardDescription>
-            Valor {data.pulse.value.toFixed(2)} / 100 · Confianza <Badge variant="outline">{data.pulse.confidence}</Badge>
+            Valor {data.pulse.value.toFixed(2)} / 100 · Confianza <Badge variant="outline">{data.pulse.confidence}</Badge> <HelpTooltip content={HELP.athleteMetrics.pulseConfidence} title="Ayuda: Confianza" />
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -88,7 +90,7 @@ export default function AthleteDashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Capacidades</CardTitle>
+          <CardTitle className="flex items-center gap-1">Capacidades <HelpTooltip content={HELP.athleteMetrics.trends30d} title="Ayuda: Capacidades" /></CardTitle>
           <CardDescription>
             Nivel {data.level} · Banda {data.levelBand}
           </CardDescription>
@@ -97,7 +99,7 @@ export default function AthleteDashboardPage() {
           {capacities.map((item) => (
             <div key={item.type} className="space-y-2 rounded-lg border border-border/70 bg-background/30 p-3">
               <div className="flex items-center justify-between text-sm">
-                <span>{item.type.replaceAll("_", " ")}</span>
+                <span className="flex items-center gap-1">{item.type.replaceAll("_", " ")}<HelpTooltip content={item.type === "STRENGTH" ? HELP.athleteMetrics.strength : item.type === "MUSCULAR_ENDURANCE" ? HELP.athleteMetrics.muscularEndurance : item.type === "RELATIVE_STRENGTH" ? HELP.athleteMetrics.relativeStrength : HELP.athleteMetrics.workCapacity} title={`Ayuda: ${item.type}`} /></span>
                 <span>{item.value.toFixed(2)}</span>
               </div>
               <Progress value={item.value} />
@@ -108,15 +110,15 @@ export default function AthleteDashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Tests</CardTitle>
+          <CardTitle className="flex items-center gap-1">Tests <HelpTooltip content={HELP.athleteMetrics.tests30d} title="Ayuda: Tests" /></CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
           <div className="rounded-lg border p-3">
-            <p className="text-muted-foreground">Últimos 7d</p>
+            <p className="flex items-center gap-1 text-muted-foreground">Últimos 7d <HelpTooltip content={HELP.athleteMetrics.tests7d} title="Ayuda: últimos 7d" /></p>
             <p className="text-2xl font-semibold">{data.counts.tests7d}</p>
           </div>
           <div className="rounded-lg border p-3">
-            <p className="text-muted-foreground">Últimos 30d</p>
+            <p className="flex items-center gap-1 text-muted-foreground">Últimos 30d <HelpTooltip content={HELP.athleteMetrics.tests30d} title="Ayuda: últimos 30d" /></p>
             <p className="text-2xl font-semibold">{data.counts.tests30d}</p>
           </div>
         </CardContent>
@@ -124,7 +126,7 @@ export default function AthleteDashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Tendencias 30d</CardTitle>
+          <CardTitle className="flex items-center gap-1">Tendencias 30d <HelpTooltip content={HELP.athleteMetrics.trends30d} title="Ayuda: tendencias" /></CardTitle>
           <CardDescription>Variación por capacidad en los últimos 30 días.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">

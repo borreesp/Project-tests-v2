@@ -1002,15 +1002,17 @@ class RuntimeService:
             if current_user.role != UserRole.ADMIN and workout.author_coach_user_id != current_user.id:
                 raise ForbiddenError("Coach can only publish own workouts")
 
-            now = _now()
-            workout.published_at = now
-            workout.updated_at = now
-
             coach_gym_id = self._coach_gym_id(current_user.id) if current_user.role == UserRole.COACH else None
             if coach_gym_id is None and current_user.role == UserRole.ADMIN:
                 coach_gym_id = next(iter(self.gyms.keys()), None)
             if coach_gym_id is None:
                 raise ForbiddenError("Coach gym not found")
+
+            self._assert_test_workout_has_required_ideal(workout, coach_gym_id)
+
+            now = _now()
+            workout.published_at = now
+            workout.updated_at = now
 
             scope = AssignmentScope.COMMUNITY if workout.visibility == WorkoutVisibility.COMMUNITY else AssignmentScope.GYM
             gym_id = None if scope == AssignmentScope.COMMUNITY else coach_gym_id
@@ -1039,6 +1041,30 @@ class RuntimeService:
                 scoreType=workout.score_type,
                 publishedAt=_iso(workout.published_at) or "",
             )
+
+    def _assert_test_workout_has_required_ideal(self, workout: WorkoutDefinitionRecord, gym_id: str) -> None:
+        if not workout.is_test:
+            return
+
+        has_community_ideal = any(
+            item.workout_definition_id == workout.id and item.scope == IdealScope.COMMUNITY and item.ideal_score_base > 0
+            for item in self.ideal_profiles.values()
+        )
+
+        if workout.visibility == WorkoutVisibility.COMMUNITY:
+            if not has_community_ideal:
+                raise ValidationServiceError("Community ideal score is required before publishing this test")
+            return
+
+        has_gym_ideal = any(
+            item.workout_definition_id == workout.id
+            and item.scope == IdealScope.GYM
+            and item.gym_id == gym_id
+            and item.ideal_score_base > 0
+            for item in self.ideal_profiles.values()
+        )
+        if not has_gym_ideal and not has_community_ideal:
+            raise ValidationServiceError("Ideal score is required before publishing this test")
 
     def duplicate_workout(self, current_user: UserRecord, workout_id: str) -> DuplicateWorkoutResponseDTO:
         with self._lock:

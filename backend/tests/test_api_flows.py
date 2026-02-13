@@ -54,6 +54,20 @@ def _build_workout_payload(movement_id: str) -> dict:
     }
 
 
+def _set_gym_ideal_score(client: TestClient, coach_headers: dict[str, str], workout_id: str) -> None:
+    service = get_runtime_service()
+    coach_user = next(user for user in service.users.values() if user.email == "coach@local.com")
+    coach_gym_id = service._coach_gym_id(coach_user.id)  # noqa: SLF001
+    assert coach_gym_id is not None
+
+    response = client.put(
+        f"/api/v1/coach/workouts/{workout_id}/ideal-scores/gym/{coach_gym_id}",
+        json={"idealScoreBase": 8500, "notes": "Gym baseline"},
+        headers=coach_headers,
+    )
+    assert response.status_code == 200
+
+
 def test_auth_login_refresh_logout_me(client: TestClient) -> None:
     login = _login(client, "athlete@local.com", "Athlete123!")
     access_token = login["accessToken"]
@@ -135,6 +149,12 @@ def test_create_workout_create_attempt_submit_validate_dashboard(client: TestCli
     )
     assert create_workout_response.status_code == 200
     workout_id = create_workout_response.json()["id"]
+
+    _set_gym_ideal_score(client, coach_headers, workout_id)
+
+    _set_gym_ideal_score(client, coach_headers, workout_id)
+
+    _set_gym_ideal_score(client, coach_headers, workout_id)
 
     publish_response = client.post(f"/api/v1/coach/workouts/{workout_id}/publish", headers=coach_headers)
     assert publish_response.status_code == 200
@@ -247,6 +267,8 @@ def test_create_attempt_rejects_invalid_payload(client: TestClient) -> None:
     assert create_workout_response.status_code == 200
     workout_id = create_workout_response.json()["id"]
 
+    _set_gym_ideal_score(client, coach_headers, workout_id)
+
     publish_response = client.post(f"/api/v1/coach/workouts/{workout_id}/publish", headers=coach_headers)
     assert publish_response.status_code == 200
 
@@ -285,6 +307,8 @@ def test_athlete_dashboard_and_rankings_schema_after_attempt_validation(client: 
     )
     assert create_workout_response.status_code == 200
     workout_id = create_workout_response.json()["id"]
+
+    _set_gym_ideal_score(client, coach_headers, workout_id)
 
     publish_response = client.post(f"/api/v1/coach/workouts/{workout_id}/publish", headers=coach_headers)
     assert publish_response.status_code == 200
@@ -358,6 +382,8 @@ def test_ideal_scores_permissions_and_upserts(client: TestClient) -> None:
     assert create_response.status_code == 200
     workout_id = create_response.json()["id"]
 
+    _set_gym_ideal_score(client, coach_headers, workout_id)
+
     service = get_runtime_service()
     coach_user = next(user for user in service.users.values() if user.email == "coach@local.com")
     coach_gym_id = service._coach_gym_id(coach_user.id)  # noqa: SLF001
@@ -393,6 +419,20 @@ def test_ideal_scores_permissions_and_upserts(client: TestClient) -> None:
     assert any(item["gymId"] == coach_gym_id for item in payload["gyms"])
 
 
+def test_publish_test_workout_requires_ideal_score(client: TestClient) -> None:
+    coach_login = _login(client, "coach@local.com", "Coach123!")
+    coach_headers = _auth_headers(coach_login["accessToken"])
+
+    movement_id = client.get("/api/v1/movements").json()[0]["id"]
+    create_response = client.post("/api/v1/coach/workouts", json=_build_workout_payload(movement_id), headers=coach_headers)
+    assert create_response.status_code == 200
+    workout_id = create_response.json()["id"]
+
+    publish_response = client.post(f"/api/v1/coach/workouts/{workout_id}/publish", headers=coach_headers)
+    assert publish_response.status_code == 422
+    assert publish_response.json()["detail"] == "Ideal score is required before publishing this test"
+
+
 def test_delete_test_workout_success_without_attempts(client: TestClient) -> None:
     coach_login = _login(client, "coach@local.com", "Coach123!")
     coach_headers = _auth_headers(coach_login["accessToken"])
@@ -401,6 +441,8 @@ def test_delete_test_workout_success_without_attempts(client: TestClient) -> Non
     create_response = client.post("/api/v1/coach/workouts", json=_build_workout_payload(movement_id), headers=coach_headers)
     assert create_response.status_code == 200
     workout_id = create_response.json()["id"]
+
+    _set_gym_ideal_score(client, coach_headers, workout_id)
 
     delete_response = client.delete(f"/api/v1/coach/workouts/{workout_id}", headers=coach_headers)
     assert delete_response.status_code == 200
@@ -422,6 +464,8 @@ def test_delete_test_workout_returns_409_with_attempts(client: TestClient) -> No
     create_response = client.post("/api/v1/coach/workouts", json=_build_workout_payload(movement_id), headers=coach_headers)
     assert create_response.status_code == 200
     workout_id = create_response.json()["id"]
+
+    _set_gym_ideal_score(client, coach_headers, workout_id)
 
     publish_response = client.post(f"/api/v1/coach/workouts/{workout_id}/publish", headers=coach_headers)
     assert publish_response.status_code == 200

@@ -776,6 +776,31 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
       return;
     }
 
+    if (publish) {
+      if (!workoutId) {
+        setStep(3);
+        setError("Para publicar primero debes guardar el test y definir ideal score.");
+        return;
+      }
+
+      const communityIdeal = Number(communityIdealScore);
+      const hasCommunityIdeal = Number.isFinite(communityIdeal) && communityIdeal > 0;
+      const gymIdeal = Number(gymIdealScore);
+      const hasGymIdeal = Number.isFinite(gymIdeal) && gymIdeal > 0;
+
+      if (scope === "COMMUNITY" && !hasCommunityIdeal) {
+        setStep(3);
+        setError("Para publicar en comunidad debes definir Ideal Global > 0.");
+        return;
+      }
+
+      if (scope === "GYM" && !hasGymIdeal && !hasCommunityIdeal) {
+        setStep(3);
+        setError("Para publicar debes definir Ideal de gym o Ideal Global > 0.");
+        return;
+      }
+    }
+
     setSaving(true);
     setError(null);
     try {

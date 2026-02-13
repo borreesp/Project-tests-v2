@@ -1,6 +1,8 @@
 from fastapi.testclient import TestClient
 import pytest
 
+from src.application.services.runtime_service import get_runtime_service
+
 
 def _auth_headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
@@ -51,6 +53,20 @@ def _build_workout_payload(movement_id: str) -> dict:
     }
 
 
+def _set_gym_ideal_score(client: TestClient, coach_headers: dict[str, str], workout_id: str) -> None:
+    service = get_runtime_service()
+    coach_user = next(user for user in service.users.values() if user.email == "coach@local.com")
+    coach_gym_id = service._coach_gym_id(coach_user.id)  # noqa: SLF001
+    assert coach_gym_id is not None
+
+    response = client.put(
+        f"/api/v1/coach/workouts/{workout_id}/ideal-scores/gym/{coach_gym_id}",
+        json={"idealScoreBase": 8500, "notes": "Gym baseline"},
+        headers=coach_headers,
+    )
+    assert response.status_code == 200
+
+
 @pytest.mark.integration
 def test_create_athlete_workout_attempt_and_read_from_api(client: TestClient) -> None:
     coach_login = _login(client, "coach@local.com", "Coach123!")
@@ -60,6 +76,8 @@ def test_create_athlete_workout_attempt_and_read_from_api(client: TestClient) ->
     create_workout = client.post("/api/v1/coach/workouts", json=_build_workout_payload(movement_id), headers=coach_headers)
     assert create_workout.status_code == 200
     workout_id = create_workout.json()["id"]
+
+    _set_gym_ideal_score(client, coach_headers, workout_id)
 
     publish_response = client.post(f"/api/v1/coach/workouts/{workout_id}/publish", headers=coach_headers)
     assert publish_response.status_code == 200

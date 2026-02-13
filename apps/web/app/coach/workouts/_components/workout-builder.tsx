@@ -429,6 +429,8 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
     });
   }, [movements, movementQuery, pattern]);
 
+  const movementIds = useMemo(() => new Set(movements.map((movement) => movement.id)), [movements]);
+
   const movementByName = useMemo(() => {
     const map = new Map<string, MovementDTO>();
     movements.forEach((movement) => map.set(movement.name.toLowerCase(), movement));
@@ -648,6 +650,17 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
           critical: true,
         });
       }
+
+      block.movements.forEach((movement) => {
+        if (!movementIds.has(movement.movementId)) {
+          issues.push({
+            id: `unknown_movement_${block.id}_${movement.id}`,
+            message: `Bloque ${block.ord}: movimiento inexistente en catálogo (${movement.movementId}).`,
+            step: 2,
+            critical: true,
+          });
+        }
+      });
     });
 
     if (Math.abs(sumWeights - 1) > 0.01) {
@@ -660,7 +673,7 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
     }
 
     return issues;
-  }, [title, scoreType, scales, blocks, referenceMode, sumWeights]);
+  }, [title, scoreType, scales, blocks, referenceMode, sumWeights, movementIds]);
 
   const criticalIssues = useMemo(() => validationIssues.filter((issue) => issue.critical), [validationIssues]);
 

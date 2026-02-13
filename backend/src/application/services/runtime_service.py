@@ -1700,7 +1700,7 @@ class RuntimeService:
     def _build_impact_breakdown(self, workout: WorkoutDefinitionRecord) -> dict[str, Any]:
         movement_data: list[dict[str, Any]] = []
         block_aggregate: dict[str, dict[str, Any]] = {}
-        
+
         for block in sorted(workout.blocks, key=lambda item: item.ord):
             for movement in sorted(block.movements, key=lambda item: item.ord):
                 catalog_movement = self.movements.get(movement.movement_id)
@@ -1717,7 +1717,7 @@ class RuntimeService:
                         calories=movement.calories,
                     )
                 )
-                
+
                 movement_data.append(
                     {
                         "movementId": movement.movement_id,
@@ -1740,7 +1740,7 @@ class RuntimeService:
                     block_entry["raw"][capacity] += raw_impact[capacity]
 
         total_impact = self._capacity_impact_payload(self._capacity_weights(workout))
-        
+
         by_movement: list[dict[str, Any]] = []
         for movement_entry in movement_data:
             normalized = normalize_capacity_impact(movement_entry["raw"])
@@ -1753,7 +1753,7 @@ class RuntimeService:
                     "impact": self._capacity_impact_payload(normalized),
                 }
             )
-        
+
         by_block: list[dict[str, Any]] = []
         for block_entry in sorted(block_aggregate.values(), key=lambda item: item["blockOrd"]):
             normalized = normalize_capacity_impact(block_entry["raw"])

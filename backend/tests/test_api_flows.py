@@ -217,6 +217,17 @@ def test_create_test_workout_requires_score_type_and_capacity_weights(client: Te
     assert create_response.status_code == 422
 
 
+def test_create_workout_rejects_unknown_movement_id(client: TestClient) -> None:
+    coach_login = _login(client, "coach@local.com", "Coach123!")
+    coach_headers = _auth_headers(coach_login["accessToken"])
+
+    payload = _build_workout_payload("00000000-0000-0000-0000-000000000000")
+
+    create_response = client.post("/api/v1/coach/workouts", json=payload, headers=coach_headers)
+    assert create_response.status_code == 422
+    assert "Movement not found" in create_response.json()["detail"]
+
+
 def test_create_attempt_rejects_invalid_payload(client: TestClient) -> None:
     coach_login = _login(client, "coach@local.com", "Coach123!")
     coach_headers = _auth_headers(coach_login["accessToken"])

@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 
 import { ErrorState, LoadingState } from "@/components/state-view";
+import { HelpTooltip } from "@/components/help-tooltip";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { HELP } from "@/content/help-text";
 import { webApi } from "@/lib/sdk";
 
 type CoachOverviewDTO = {
@@ -65,21 +67,27 @@ export default function CoachOverviewPage() {
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Athletes</CardTitle>
+          <CardTitle className="flex items-center gap-1 text-base">
+            Athletes <HelpTooltip content={HELP.coachMetrics.athletes} title="Ayuda: Athletes" />
+          </CardTitle>
           <CardDescription>Total de atletas asignados</CardDescription>
         </CardHeader>
         <CardContent className="text-3xl font-semibold">{overview.athletesCount}</CardContent>
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Pending validations</CardTitle>
+          <CardTitle className="flex items-center gap-1 text-base">
+            Pending validations <HelpTooltip content={HELP.coachMetrics.pendingValidations} title="Ayuda: Pending validations" />
+          </CardTitle>
           <CardDescription>Tests por revisar</CardDescription>
         </CardHeader>
         <CardContent className="text-3xl font-semibold text-amber-400">{overview.pendingSubmissions}</CardContent>
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Validated today</CardTitle>
+          <CardTitle className="flex items-center gap-1 text-base">
+            Validated today <HelpTooltip content={HELP.coachMetrics.validatedToday} title="Ayuda: Validated today" />
+          </CardTitle>
           <CardDescription>Progreso diario del coach</CardDescription>
         </CardHeader>
         <CardContent className="text-3xl font-semibold text-emerald-400">{overview.validatedToday}</CardContent>

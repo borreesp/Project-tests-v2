@@ -18,12 +18,13 @@ import type {
 } from "@packages/types";
 
 import { ErrorState, LoadingState } from "@/components/state-view";
+import { HelpTooltip, LabelWithHelp } from "@/components/help-tooltip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { HELP } from "@/content/help-text";
 import { webApi } from "@/lib/sdk";
 
 type BuilderMode = "create" | "edit";
@@ -998,7 +999,7 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
           {step === 1 ? (
             <>
               <div className="space-y-2">
-                <Label>Plantilla (Quick start)</Label>
+                <LabelWithHelp label="Plantilla (Quick start)" help={HELP.workoutBuilder.template} />
                 <Select
                   value={selectedTemplate}
                   onChange={(event) => {
@@ -1017,16 +1018,16 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
               </div>
 
               <div className="space-y-2">
-                <Label>Title</Label>
+                <LabelWithHelp label="Title" help={HELP.workoutBuilder.title} />
                 <Input value={title} onChange={(event) => setTitle(event.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>Description</Label>
+                <LabelWithHelp label="Description" help={HELP.workoutBuilder.description} />
                 <Textarea value={description} onChange={(event) => setDescription(event.target.value)} />
               </div>
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Workout Type</Label>
+                  <LabelWithHelp label="Workout Type" help={HELP.workoutBuilder.workoutType} />
                   <Select value={type} onChange={(event) => setScoreTypeFromType(event.target.value as WorkoutType)}>
                     {WORKOUT_TYPES.map((item) => (
                       <option key={item} value={item}>
@@ -1036,7 +1037,7 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>ScoreType</Label>
+                  <LabelWithHelp label="ScoreType" help={HELP.workoutBuilder.scoreType} />
                   <Select value={scoreType} onChange={(event) => changeScoreType(event.target.value as ScoreType)}>
                     {SCORE_TYPES.map((item) => (
                       <option key={item} value={item}>
@@ -1046,14 +1047,14 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Visibility</Label>
+                  <LabelWithHelp label="Visibility" help={HELP.workoutBuilder.visibility} />
                   <Select value={visibility} onChange={(event) => setVisibility(event.target.value as WorkoutVisibility)}>
                     <option value="COMMUNITY">COMMUNITY</option>
                     <option value="GYMS_ONLY">GYMS_ONLY</option>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Duration</Label>
+                  <LabelWithHelp label="Duration" help={HELP.workoutBuilder.duration} />
                   <Input value="10:00" readOnly />
                 </div>
               </div>
@@ -1148,8 +1149,8 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
                         <option value="REST">REST</option>
                       </Select>
                       <Input type="number" min={1} value={block.repeatInt} onChange={(event) => updateBlock(block.id, (prev) => ({ ...prev, repeatInt: Number(event.target.value || 1) }))} />
-                      <Input type="number" min={1} placeholder="time_seconds" value={block.timeSeconds ?? ""} onChange={(event) => updateBlock(block.id, (prev) => ({ ...prev, timeSeconds: parseNumberInput(event.target.value) }))} />
-                      <Input type="number" min={1} placeholder="cap_seconds" value={block.capSeconds ?? ""} onChange={(event) => updateBlock(block.id, (prev) => ({ ...prev, capSeconds: parseNumberInput(event.target.value) }))} />
+                      <Input aria-label="time_seconds" title={HELP.workoutBuilder.timeSeconds} type="number" min={1} placeholder="time_seconds" value={block.timeSeconds ?? ""} onChange={(event) => updateBlock(block.id, (prev) => ({ ...prev, timeSeconds: parseNumberInput(event.target.value) }))} />
+                      <Input aria-label="cap_seconds" title={HELP.workoutBuilder.capSeconds} type="number" min={1} placeholder="cap_seconds" value={block.capSeconds ?? ""} onChange={(event) => updateBlock(block.id, (prev) => ({ ...prev, capSeconds: parseNumberInput(event.target.value) }))} />
                     </div>
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline" onClick={() => moveBlock(block.id, -1)}>
@@ -1170,23 +1171,23 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
                             <div key={movement.id} className="space-y-2 rounded border p-2 text-sm">
                               <p>{movementMeta?.name ?? movement.movementId}</p>
                               <div className="grid gap-2 md:grid-cols-4">
-                                <Input type="number" placeholder="reps" value={movement.reps ?? ""} onChange={(event) => updateBlock(block.id, (prev) => ({ ...prev, movements: prev.movements.map((item) => (item.id === movement.id ? { ...item, reps: parseNumberInput(event.target.value) } : item)) }))} />
-                                <Input type="number" placeholder="meters" value={movement.meters ?? ""} onChange={(event) => updateBlock(block.id, (prev) => ({ ...prev, movements: prev.movements.map((item) => (item.id === movement.id ? { ...item, meters: parseNumberInput(event.target.value) } : item)) }))} />
-                                <Input type="number" placeholder="seconds" value={movement.seconds ?? ""} onChange={(event) => updateBlock(block.id, (prev) => ({ ...prev, movements: prev.movements.map((item) => (item.id === movement.id ? { ...item, seconds: parseNumberInput(event.target.value) } : item)) }))} />
-                                <Input type="number" placeholder="calories" value={movement.calories ?? ""} onChange={(event) => updateBlock(block.id, (prev) => ({ ...prev, movements: prev.movements.map((item) => (item.id === movement.id ? { ...item, calories: parseNumberInput(event.target.value) } : item)) }))} />
+                                <Input aria-label="reps" title={HELP.workoutBuilder.reps} type="number" placeholder="reps" value={movement.reps ?? ""} onChange={(event) => updateBlock(block.id, (prev) => ({ ...prev, movements: prev.movements.map((item) => (item.id === movement.id ? { ...item, reps: parseNumberInput(event.target.value) } : item)) }))} />
+                                <Input aria-label="meters" title={HELP.workoutBuilder.meters} type="number" placeholder="meters" value={movement.meters ?? ""} onChange={(event) => updateBlock(block.id, (prev) => ({ ...prev, movements: prev.movements.map((item) => (item.id === movement.id ? { ...item, meters: parseNumberInput(event.target.value) } : item)) }))} />
+                                <Input aria-label="seconds" title={HELP.workoutBuilder.seconds} type="number" placeholder="seconds" value={movement.seconds ?? ""} onChange={(event) => updateBlock(block.id, (prev) => ({ ...prev, movements: prev.movements.map((item) => (item.id === movement.id ? { ...item, seconds: parseNumberInput(event.target.value) } : item)) }))} />
+                                <Input aria-label="calories" title={HELP.workoutBuilder.calories} type="number" placeholder="calories" value={movement.calories ?? ""} onChange={(event) => updateBlock(block.id, (prev) => ({ ...prev, movements: prev.movements.map((item) => (item.id === movement.id ? { ...item, calories: parseNumberInput(event.target.value) } : item)) }))} />
                               </div>
                               <div className="grid gap-2 md:grid-cols-3">
-                                <Select value={movement.loadRule} onChange={(event) => updateBlock(block.id, (prev) => ({ ...prev, movements: prev.movements.map((item) => (item.id === movement.id ? { ...item, loadRule: event.target.value as LoadRule } : item)) }))}>
+                                <Select title={HELP.workoutBuilder.loadRule} value={movement.loadRule} onChange={(event) => updateBlock(block.id, (prev) => ({ ...prev, movements: prev.movements.map((item) => (item.id === movement.id ? { ...item, loadRule: event.target.value as LoadRule } : item)) }))}>
                                   <option value="FIXED">FIXED</option>
                                   <option value="ATHLETE_CHOICE">ATHLETE_CHOICE</option>
                                   <option value="SCALE_REFERENCE">SCALE_REFERENCE</option>
                                 </Select>
                                 {showBox ? (
-                                  <Input type="number" placeholder="boxHeightCm" value={movement.boxHeightCm ?? ""} onChange={(event) => updateBlock(block.id, (prev) => ({ ...prev, movements: prev.movements.map((item) => (item.id === movement.id ? { ...item, boxHeightCm: parseNumberInput(event.target.value) } : item)) }))} />
+                                  <Input aria-label="boxHeightCm" title={HELP.workoutBuilder.boxHeightCm} type="number" placeholder="boxHeightCm" value={movement.boxHeightCm ?? ""} onChange={(event) => updateBlock(block.id, (prev) => ({ ...prev, movements: prev.movements.map((item) => (item.id === movement.id ? { ...item, boxHeightCm: parseNumberInput(event.target.value) } : item)) }))} />
                                 ) : (
                                   <Input value="N/A" readOnly />
                                 )}
-                                <Input placeholder="notes" value={movement.notes} onChange={(event) => updateBlock(block.id, (prev) => ({ ...prev, movements: prev.movements.map((item) => (item.id === movement.id ? { ...item, notes: event.target.value } : item)) }))} />
+                                <Input title={HELP.workoutBuilder.notes} placeholder="notes" value={movement.notes} onChange={(event) => updateBlock(block.id, (prev) => ({ ...prev, movements: prev.movements.map((item) => (item.id === movement.id ? { ...item, notes: event.target.value } : item)) }))} />
                               </div>
                               <div className="flex gap-2">
                                 <Button size="sm" variant="outline" onClick={() => moveMovement(block.id, movement.id, -1)}>
@@ -1211,7 +1212,7 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
           {step === 3 ? (
             <div className="space-y-4">
               <div className="space-y-2 rounded border p-3">
-                <p className="text-sm font-semibold">Capacity Weights</p>
+                <p className="flex items-center gap-1 text-sm font-semibold">Capacity Weights <HelpTooltip content={HELP.athleteMetrics.trends30d} title="Ayuda: Capacity weights" /></p>
                 <div className="grid gap-2 md:grid-cols-2">
                   {WEIGHT_PRESETS.map((preset) => (
                     <Button key={preset.id} type="button" variant="outline" size="sm" onClick={() => applyWeightsPreset(preset.values)}>

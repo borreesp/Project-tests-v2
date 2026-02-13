@@ -4,10 +4,10 @@ import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 import { ErrorState, LoadingState } from "@/components/state-view";
+import { LabelWithHelp } from "@/components/help-tooltip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { webApi } from "@/lib/sdk";
 
@@ -124,8 +124,8 @@ export default function CoachAthleteDetailPage() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <p>Gym: {athlete.gymId}</p>
-          <p>Level: {athlete.level}</p>
-          <p>Band: {athlete.levelBand}</p>
+          <p className="flex items-center gap-1">Level: {athlete.level}</p>
+          <p className="flex items-center gap-1">Band: {athlete.levelBand}</p>
           <p>Created: {new Date(athlete.createdAt).toLocaleString()}</p>
           <p className="text-muted-foreground">
             El backend actual no expone lista de attempts por atleta. Usa un attempt ID para validar o rechazar.
@@ -139,7 +139,7 @@ export default function CoachAthleteDetailPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="attemptId">Attempt ID</Label>
+            <LabelWithHelp label="Attempt ID" htmlFor="attemptId" help="Identificador único del intento que vas a validar o rechazar." />
             <Input id="attemptId" value={attemptId} onChange={(event) => setAttemptId(event.target.value)} />
           </div>
 
@@ -150,7 +150,7 @@ export default function CoachAthleteDetailPage() {
           </form>
 
           <form className="space-y-2" onSubmit={onReject}>
-            <Label htmlFor="rejectReason">Reject reason</Label>
+            <LabelWithHelp label="Reject reason" htmlFor="rejectReason" help="Motivo claro del rechazo para feedback del atleta y auditoría." />
             <Textarea id="rejectReason" value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} />
             <Button type="submit" variant="destructive" disabled={acting || !attemptId.trim()}>
               {acting ? "Procesando..." : "Reject attempt"}

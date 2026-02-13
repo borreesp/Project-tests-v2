@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PREFLIGHT_PS1="${ROOT_DIR}/scripts/preflight.ps1"
+VERIFY_SH="${ROOT_DIR}/scripts/verify.sh"
+
+if [[ ! -f "$PREFLIGHT_PS1" ]]; then
+  printf '[preflight][error] Missing preflight script: %s\n' "$PREFLIGHT_PS1" >&2
+  exit 1
+fi
+
+if command -v pwsh >/dev/null 2>&1; then
+  exec pwsh -NoProfile -File "$PREFLIGHT_PS1" "$@"
+fi
+
+if command -v powershell >/dev/null 2>&1; then
+  exec powershell -NoProfile -ExecutionPolicy Bypass -File "$PREFLIGHT_PS1" "$@"
+fi
+
+if command -v powershell.exe >/dev/null 2>&1; then
+  exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PREFLIGHT_PS1" "$@"
+fi
+
+if [[ -f "$VERIFY_SH" ]]; then
+  if bash "$VERIFY_SH" "$@"; then
+    printf 'OK TO OPEN PR\n'
+    exit 0
+  else
+    verify_exit=$?
+    printf '[preflight][error] verify.sh failed (exit code: %s)\n' "$verify_exit" >&2
+    exit 1
+  fi
+fi
+
+printf '[preflight][error] No compatible runtime found (pwsh/powershell missing and scripts/verify.sh unavailable).\n' >&2
+exit 127

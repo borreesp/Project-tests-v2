@@ -30,6 +30,7 @@ type BuilderMode = "create" | "edit";
 type BuilderStep = 1 | 2 | 3;
 type PublishScope = "COMMUNITY" | "GYM";
 type ReferenceMode = "SIMPLE" | "ADVANCED";
+type QuickStartTemplate = "SQUAT" | "PRESS_EMOM" | "DEADLIFT_FARMER" | "PULL" | "FARMER_SLED";
 
 type BuilderProps = {
   mode: BuilderMode;
@@ -80,6 +81,18 @@ type ValidationIssue = {
   message: string;
   step: BuilderStep;
   critical: boolean;
+};
+
+type QuickStartHydration = {
+  title: string;
+  description: string;
+  type: WorkoutType;
+  scoreType: ScoreType;
+  scoreTypeOverridden: boolean;
+  visibility: WorkoutVisibility;
+  weights: Record<CapacityType, number>;
+  blocks: BuilderBlock[];
+  usedEmomGenerator: boolean;
 };
 
 const CAPACITY_TYPES: CapacityType[] = ["STRENGTH", "MUSCULAR_ENDURANCE", "RELATIVE_STRENGTH", "WORK_CAPACITY"];
@@ -252,6 +265,38 @@ function pickTemplateMovement(mapByName: Map<string, MovementDTO>, fallbackList:
   return mapByName.get("db push press") ?? fallbackList[0] ?? null;
 }
 
+function movementEntryFromTemplate(movementId: string, ord: number, values: Partial<BuilderMovement>): BuilderMovement {
+  return {
+    id: uid(),
+    ord,
+    movementId,
+    reps: values.reps,
+    meters: values.meters,
+    seconds: values.seconds,
+    calories: values.calories,
+    loadRule: values.loadRule ?? "ATHLETE_CHOICE",
+    notes: values.notes ?? "",
+    boxHeightCm: values.boxHeightCm,
+  };
+}
+
+function buildEmomTemplateBlocks(defaultMovement: MovementDTO | null): BuilderBlock[] {
+  const nextBlocks: BuilderBlock[] = [];
+  for (let i = 1; i <= 20; i += 1) {
+    const work = i % 2 === 1;
+    nextBlocks.push({
+      id: uid(),
+      ord: i,
+      name: work ? `Work ${Math.ceil(i / 2)}` : `Rest ${Math.ceil(i / 2)}`,
+      blockType: work ? "WORK" : "REST",
+      repeatInt: 1,
+      timeSeconds: 60,
+      movements: work && defaultMovement ? [movementEntryFromTemplate(defaultMovement.id, 1, { reps: defaultMovement.unitPrimary === "REPS" ? 8 : undefined })] : [],
+    });
+  }
+  return nextBlocks;
+}
+
 export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -271,7 +316,7 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
   const [visibility, setVisibility] = useState<WorkoutVisibility>("GYMS_ONLY");
   const [scoreType, setScoreType] = useState<ScoreType>(SCORE_TYPE_BY_WORKOUT_TYPE.AMRAP);
   const [scoreTypeOverridden, setScoreTypeOverridden] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<"" | "SQUAT" | "PRESS_EMOM" | "DEADLIFT_FARMER" | "PULL" | "FARMER_SLED">("");
+  const [selectedTemplate, setSelectedTemplate] = useState<"" | QuickStartTemplate>("");
   const [movementQuery, setMovementQuery] = useState("");
   const [pattern, setPattern] = useState<MovementPattern | "ALL">("ALL");
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
@@ -434,6 +479,14 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
     return map;
   }, [movements]);
 
+  const selectedMovementIds = useMemo(() => {
+    const ids = new Set<string>();
+    blocks.forEach((block) => {
+      block.movements.forEach((movement) => ids.add(movement.movementId));
+    });
+    return ids;
+  }, [blocks]);
+
   const sumWeights = useMemo(
     () => CAPACITY_TYPES.reduce((sum, capacityType) => sum + weights[capacityType], 0),
     [weights]
@@ -557,6 +610,10 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
         block.movements.push(movementItem);
         setSelectedBlockId(block.id);
         return [...previous, block];
+      }
+
+      if (target.movements.some((item) => item.movementId === movement.id)) {
+        return previous;
       }
 
       return previous.map((block) => {
@@ -723,32 +780,9 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
     });
   }
 
-  function generateEmom10() {
-    const defaultMovement = pickTemplateMovement(movementByName, movements);
-    const nextBlocks: BuilderBlock[] = [];
-    for (let i = 1; i <= 20; i += 1) {
-      const work = i % 2 === 1;
-      nextBlocks.push({
-        id: uid(),
-        ord: i,
-        name: work ? `Work ${Math.ceil(i / 2)}` : `Rest ${Math.ceil(i / 2)}`,
-        blockType: work ? "WORK" : "REST",
-        repeatInt: 1,
-        timeSeconds: 60,
-        movements:
-          work && defaultMovement
-            ? [{ ...makeMovementEntry(defaultMovement), ord: 1, reps: defaultMovement.unitPrimary === "REPS" ? 8 : undefined }]
-            : [],
-      });
-    }
-    setBlocks(nextBlocks);
-    setSelectedBlockId(nextBlocks.find((block) => block.blockType === "WORK")?.id ?? null);
-    setUsedEmomGenerator(true);
-  }
-
-  function applyTemplate(template: "SQUAT" | "PRESS_EMOM" | "DEADLIFT_FARMER" | "PULL" | "FARMER_SLED") {
+  function applyTemplateToBuilder(template: QuickStartTemplate) {
     const get = (name: string) => movementByName.get(name.toLowerCase()) ?? null;
-    const required: Record<typeof template, string[]> = {
+    const required: Record<QuickStartTemplate, string[]> = {
       SQUAT: ["Back Squat"],
       PRESS_EMOM: ["DB Push Press"],
       DEADLIFT_FARMER: ["Deadlift", "Farmer Carry"],
@@ -761,76 +795,128 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
       return;
     }
 
-    setSelectedTemplate(template);
-    setError(null);
-    setVisibility("GYMS_ONLY");
+    const nextWeights = defaultWeights();
+    const hydrate = (next: Omit<QuickStartHydration, "weights" | "visibility"> & { weights: Partial<Record<CapacityType, number>> }): QuickStartHydration => {
+      Object.assign(nextWeights, next.weights);
+      return {
+        title: next.title,
+        description: next.description,
+        type: next.type,
+        scoreType: next.scoreType,
+        scoreTypeOverridden: next.scoreTypeOverridden,
+        visibility: "GYMS_ONLY",
+        weights: nextWeights,
+        blocks: renumberBlocks(next.blocks),
+        usedEmomGenerator: next.usedEmomGenerator,
+      };
+    };
+
+    let nextState: QuickStartHydration;
 
     if (template === "SQUAT") {
       const squat = get("Back Squat");
       if (!squat) return;
-      setTitle("Test Squat");
-      setDescription("Test de squat 10min");
-      setType("AMRAP");
-      setScoreType(SCORE_TYPE_BY_WORKOUT_TYPE.AMRAP);
-      setScoreTypeOverridden(false);
-      applyWeightsPreset({ STRENGTH: 0.4, MUSCULAR_ENDURANCE: 0.6 });
-      setBlocks([{ id: uid(), ord: 1, name: "Main", blockType: "WORK", repeatInt: 1, timeSeconds: 600, movements: [{ id: uid(), ord: 1, movementId: squat.id, reps: 8, loadRule: "ATHLETE_CHOICE", notes: "" }] }]);
-      setStep(2);
-      return;
-    }
-
-    if (template === "PRESS_EMOM") {
-      setTitle("Test Press EMOM");
-      setDescription("WORK/REST 60s alternado");
-      setType("EMOM");
-      setScoreType(SCORE_TYPE_BY_WORKOUT_TYPE.EMOM);
-      setScoreTypeOverridden(false);
-      applyWeightsPreset({ STRENGTH: 0.3, MUSCULAR_ENDURANCE: 0.7 });
-      generateEmom10();
-      setStep(2);
-      return;
-    }
-
-    if (template === "DEADLIFT_FARMER") {
+      nextState = hydrate({
+        title: "Test Squat",
+        description: "Test de squat 10min",
+        type: "AMRAP",
+        scoreType: SCORE_TYPE_BY_WORKOUT_TYPE.AMRAP,
+        scoreTypeOverridden: false,
+        weights: { STRENGTH: 0.4, MUSCULAR_ENDURANCE: 0.6 },
+        blocks: [{ id: uid(), ord: 1, name: "Main", blockType: "WORK", repeatInt: 1, timeSeconds: 600, movements: [movementEntryFromTemplate(squat.id, 1, { reps: 8 })] }],
+        usedEmomGenerator: false,
+      });
+    } else if (template === "PRESS_EMOM") {
+      nextState = hydrate({
+        title: "Test Press EMOM",
+        description: "WORK/REST 60s alternado",
+        type: "EMOM",
+        scoreType: SCORE_TYPE_BY_WORKOUT_TYPE.EMOM,
+        scoreTypeOverridden: false,
+        weights: { STRENGTH: 0.3, MUSCULAR_ENDURANCE: 0.7 },
+        blocks: buildEmomTemplateBlocks(pickTemplateMovement(movementByName, movements)),
+        usedEmomGenerator: true,
+      });
+    } else if (template === "DEADLIFT_FARMER") {
       const deadlift = get("Deadlift");
       const farmer = get("Farmer Carry");
       if (!deadlift || !farmer) return;
-      setTitle("Test Deadlift + Farmer");
-      setDescription("Combinado fuerza/capacidad");
-      setType("BLOCKS");
-      setScoreType("METERS");
-      setScoreTypeOverridden(true);
-      applyWeightsPreset({ STRENGTH: 0.6, WORK_CAPACITY: 0.4 });
-      setBlocks([{ id: uid(), ord: 1, name: "Main", blockType: "WORK", repeatInt: 1, timeSeconds: 600, movements: [{ id: uid(), ord: 1, movementId: deadlift.id, reps: 6, loadRule: "ATHLETE_CHOICE", notes: "" }, { id: uid(), ord: 2, movementId: farmer.id, meters: 80, loadRule: "ATHLETE_CHOICE", notes: "" }] }]);
-      setStep(2);
-      return;
-    }
-
-    if (template === "PULL") {
+      nextState = hydrate({
+        title: "Test Deadlift + Farmer",
+        description: "Combinado fuerza/capacidad",
+        type: "BLOCKS",
+        scoreType: "METERS",
+        scoreTypeOverridden: true,
+        weights: { STRENGTH: 0.6, WORK_CAPACITY: 0.4 },
+        blocks: [{
+          id: uid(),
+          ord: 1,
+          name: "Main",
+          blockType: "WORK",
+          repeatInt: 1,
+          timeSeconds: 600,
+          movements: [movementEntryFromTemplate(deadlift.id, 1, { reps: 6 }), movementEntryFromTemplate(farmer.id, 2, { meters: 80 })],
+        }],
+        usedEmomGenerator: false,
+      });
+    } else if (template === "PULL") {
       const pull = get("Pull-up strict");
       const hollow = get("Hollow Hold");
       if (!pull || !hollow) return;
-      setTitle("Test Pull");
-      setDescription("Pull + core");
-      setType("AMRAP");
-      setScoreType(SCORE_TYPE_BY_WORKOUT_TYPE.AMRAP);
-      setScoreTypeOverridden(false);
-      applyWeightsPreset({ RELATIVE_STRENGTH: 0.8, MUSCULAR_ENDURANCE: 0.2 });
-      setBlocks([{ id: uid(), ord: 1, name: "Main", blockType: "WORK", repeatInt: 1, timeSeconds: 600, movements: [{ id: uid(), ord: 1, movementId: pull.id, reps: 6, loadRule: "ATHLETE_CHOICE", notes: "" }, { id: uid(), ord: 2, movementId: hollow.id, seconds: 30, loadRule: "FIXED", notes: "" }] }]);
-      setStep(2);
-      return;
+      nextState = hydrate({
+        title: "Test Pull",
+        description: "Pull + core",
+        type: "AMRAP",
+        scoreType: SCORE_TYPE_BY_WORKOUT_TYPE.AMRAP,
+        scoreTypeOverridden: false,
+        weights: { RELATIVE_STRENGTH: 0.8, MUSCULAR_ENDURANCE: 0.2 },
+        blocks: [{
+          id: uid(),
+          ord: 1,
+          name: "Main",
+          blockType: "WORK",
+          repeatInt: 1,
+          timeSeconds: 600,
+          movements: [movementEntryFromTemplate(pull.id, 1, { reps: 6 }), movementEntryFromTemplate(hollow.id, 2, { seconds: 30, loadRule: "FIXED" })],
+        }],
+        usedEmomGenerator: false,
+      });
+    } else {
+      const farmer = get("Farmer Carry");
+      const sled = get("Sled Push");
+      if (!farmer || !sled) return;
+      nextState = hydrate({
+        title: "Test Farmer + Sled",
+        description: "Capacidad de trabajo",
+        type: "BLOCKS",
+        scoreType: "METERS",
+        scoreTypeOverridden: true,
+        weights: { WORK_CAPACITY: 0.8, MUSCULAR_ENDURANCE: 0.2 },
+        blocks: [{
+          id: uid(),
+          ord: 1,
+          name: "Main",
+          blockType: "WORK",
+          repeatInt: 1,
+          timeSeconds: 600,
+          movements: [movementEntryFromTemplate(farmer.id, 1, { meters: 100 }), movementEntryFromTemplate(sled.id, 2, { meters: 60 })],
+        }],
+        usedEmomGenerator: false,
+      });
     }
 
-    const farmer = get("Farmer Carry");
-    const sled = get("Sled Push");
-    if (!farmer || !sled) return;
-    setTitle("Test Farmer + Sled");
-    setDescription("Capacidad de trabajo");
-    setType("BLOCKS");
-    setScoreType("METERS");
-    setScoreTypeOverridden(true);
-    applyWeightsPreset({ WORK_CAPACITY: 0.8, MUSCULAR_ENDURANCE: 0.2 });
-    setBlocks([{ id: uid(), ord: 1, name: "Main", blockType: "WORK", repeatInt: 1, timeSeconds: 600, movements: [{ id: uid(), ord: 1, movementId: farmer.id, meters: 100, loadRule: "ATHLETE_CHOICE", notes: "" }, { id: uid(), ord: 2, movementId: sled.id, meters: 60, loadRule: "ATHLETE_CHOICE", notes: "" }] }]);
+    setSelectedTemplate(template);
+    setError(null);
+    setTitle(nextState.title);
+    setDescription(nextState.description);
+    setType(nextState.type);
+    setVisibility(nextState.visibility);
+    setScoreType(nextState.scoreType);
+    setScoreTypeOverridden(nextState.scoreTypeOverridden);
+    setWeights(nextState.weights);
+    setBlocks(nextState.blocks);
+    setSelectedBlockId(nextState.blocks.find((block) => block.blockType === "WORK")?.id ?? null);
+    setUsedEmomGenerator(nextState.usedEmomGenerator);
     setStep(2);
   }
 
@@ -976,13 +1062,14 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
           </p>
           <div className="max-h-[520px] space-y-2 overflow-auto pr-1">
             {filteredMovements.map((movement) => (
-              <div key={movement.id} className="rounded-md border p-2 text-sm">
+              <div key={movement.id} className={`rounded-md border p-2 text-sm ${selectedMovementIds.has(movement.id) ? "border-emerald-500/60 bg-emerald-500/5" : ""}`}>
                 <p className="font-medium">{movement.name}</p>
                 <p className="text-xs text-muted-foreground">
                   {movement.pattern} / {movement.unitPrimary}
                 </p>
-                  <Button className="mt-2 w-full" size="sm" variant="outline" disabled={step !== 2} onClick={() => addMovementToSelectedBlock(movement)}>
-                    Anadir
+                {selectedMovementIds.has(movement.id) ? <p className="mt-2 text-xs font-medium text-emerald-700">Seleccionado en el builder</p> : null}
+                <Button className="mt-2 w-full" size="sm" variant="outline" disabled={step !== 2 || selectedMovementIds.has(movement.id)} onClick={() => addMovementToSelectedBlock(movement)}>
+                    {selectedMovementIds.has(movement.id) ? "Seleccionado" : "Anadir"}
                 </Button>
               </div>
             ))}
@@ -1002,9 +1089,9 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
                 <Select
                   value={selectedTemplate}
                   onChange={(event) => {
-                    const value = event.target.value as "" | "SQUAT" | "PRESS_EMOM" | "DEADLIFT_FARMER" | "PULL" | "FARMER_SLED";
+                    const value = event.target.value as "" | QuickStartTemplate;
                     setSelectedTemplate(value);
-                    if (value) applyTemplate(value);
+                    if (value) applyTemplateToBuilder(value);
                   }}
                 >
                   <option value="">Seleccionar plantilla...</option>
@@ -1303,11 +1390,11 @@ export function WorkoutBuilder({ mode, workoutId }: BuilderProps) {
           </div>
 
           <div className="grid gap-2 rounded border p-3">
-            <Button variant="outline" onClick={() => applyTemplate("SQUAT")}>Squat</Button>
-            <Button variant="outline" onClick={() => applyTemplate("PRESS_EMOM")}>Press EMOM</Button>
-            <Button variant="outline" onClick={() => applyTemplate("DEADLIFT_FARMER")}>Deadlift + Farmer</Button>
-            <Button variant="outline" onClick={() => applyTemplate("PULL")}>Pull</Button>
-            <Button variant="outline" onClick={() => applyTemplate("FARMER_SLED")}>Farmer + Sled</Button>
+            <Button variant="outline" onClick={() => applyTemplateToBuilder("SQUAT")}>Squat</Button>
+            <Button variant="outline" onClick={() => applyTemplateToBuilder("PRESS_EMOM")}>Press EMOM</Button>
+            <Button variant="outline" onClick={() => applyTemplateToBuilder("DEADLIFT_FARMER")}>Deadlift + Farmer</Button>
+            <Button variant="outline" onClick={() => applyTemplateToBuilder("PULL")}>Pull</Button>
+            <Button variant="outline" onClick={() => applyTemplateToBuilder("FARMER_SLED")}>Farmer + Sled</Button>
           </div>
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}

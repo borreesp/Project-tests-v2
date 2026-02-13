@@ -53,6 +53,33 @@ class SubmitResultRequestDTO(DTOModel):
     inputs: dict[str, object]
 
 
+class CapacityImpactDTO(DTOModel):
+    strength: float
+    muscular_endurance: float = Field(alias="muscularEndurance")
+    relative_strength: float = Field(alias="relativeStrength")
+    work_capacity: float = Field(alias="workCapacity")
+
+
+class CapacityImpactMovementSplitDTO(DTOModel):
+    movement_id: str = Field(alias="movementId")
+    block_id: str = Field(alias="blockId")
+    block_ord: int = Field(alias="blockOrd")
+    movement_ord: int = Field(alias="movementOrd")
+    impact: CapacityImpactDTO
+
+
+class CapacityImpactBlockSplitDTO(DTOModel):
+    block_id: str = Field(alias="blockId")
+    block_ord: int = Field(alias="blockOrd")
+    impact: CapacityImpactDTO
+
+
+class CapacityImpactBreakdownDTO(DTOModel):
+    total: CapacityImpactDTO
+    by_movement: list[CapacityImpactMovementSplitDTO] = Field(default_factory=list, alias="byMovement")
+    by_block: list[CapacityImpactBlockSplitDTO] = Field(default_factory=list, alias="byBlock")
+
+
 class AttemptDTO(DTOModel):
     id: str
     athlete_id: str = Field(alias="athleteId")
@@ -61,6 +88,7 @@ class AttemptDTO(DTOModel):
     scale_code: ScaleCode = Field(alias="scaleCode")
     status: AttemptStatus
     score_norm: float | None = Field(default=None, alias="scoreNorm")
+    impact_breakdown: CapacityImpactBreakdownDTO | None = Field(default=None, alias="impactBreakdown")
 
 
 class CapacityDTO(DTOModel):

@@ -87,6 +87,19 @@ def transform_movements_to_capacity_impact(movements: list[MovementImpactInput])
     return {capacity: raw_impact[capacity] / total_impact for capacity in CapacityType}
 
 
+def compute_raw_movement_impact(movement: MovementImpactInput) -> dict[CapacityType, float]:
+    pattern_weights = _PATTERN_CAPACITY_WEIGHTS[movement.pattern]
+    movement_volume = _movement_volume(movement)
+    return {capacity: weight * movement_volume for capacity, weight in pattern_weights.items()}
+
+
+def normalize_capacity_impact(raw_impact: dict[CapacityType, float]) -> dict[CapacityType, float]:
+    total_impact = sum(raw_impact.values())
+    if total_impact <= 0:
+        return {capacity: _DEFAULT_IMPACT for capacity in CapacityType}
+    return {capacity: raw_impact[capacity] / total_impact for capacity in CapacityType}
+
+
 def _movement_volume(movement: MovementImpactInput) -> float:
     reps = float(movement.reps or 0)
     meters = float(movement.meters or 0) / 10.0

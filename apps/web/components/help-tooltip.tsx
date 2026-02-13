@@ -53,7 +53,7 @@ export function HelpTooltip({ content, title = "Ayuda", side = "top", className 
       <span
         id={contentId}
         role="tooltip"
-        className={`pointer-events-none absolute left-1/2 z-30 w-72 -translate-x-1/2 rounded-md border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md transition ${panelPosition} ${open ? "visible opacity-100" : "invisible opacity-0"}`}
+        className={`pointer-events-none absolute left-1/2 z-30 w-72 -translate-x-1/2 rounded-md border border-white/20 bg-popover/65 px-3 py-2 text-xs text-popover-foreground shadow-lg backdrop-blur-sm supports-[backdrop-filter]:bg-popover/55 transition ${panelPosition} ${open ? "visible opacity-100" : "invisible opacity-0"}`}
       >
         {content}
       </span>
